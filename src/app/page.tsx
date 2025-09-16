@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -15,15 +15,23 @@ import { getEvents, getMedia, getStreamers } from '@/lib/data';
 
 function AuthHandler() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const token = searchParams.get('token');
 
     useEffect(() => {
         if (token) {
-            signInWithCustomToken(auth, token).catch((error) => {
-                console.error("Firebase custom token sign-in error", error);
-            });
+            signInWithCustomToken(auth, token)
+                .then(() => {
+                    // Token has been used, now remove it from the URL
+                    // to avoid re-signing in on refresh.
+                    router.replace('/', undefined);
+                })
+                .catch((error) => {
+                    console.error("Firebase custom token sign-in error", error);
+                    router.replace('/', undefined);
+                });
         }
-    }, [token]);
+    }, [token, router]);
 
     return null;
 }

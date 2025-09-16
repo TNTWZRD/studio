@@ -15,7 +15,7 @@ async function getGuildMember(accessToken: string, guildId: string) {
         if (response.status === 404) {
             return null;
         }
-        console.error('Failed to get guild member info:', await response.json());
+        console.error('Failed to get guild member info:', await response.text());
         return null;
     }
 
@@ -117,7 +117,8 @@ export async function GET(req: NextRequest) {
         const customToken = await adminAuth.createCustomToken(uid);
 
         const url = req.nextUrl.clone();
-        // Redirect to the base URL of your application
+        // Redirect to a dedicated auth handler page or back to the home page.
+        // The client will handle the token.
         url.pathname = '/';
         url.search = `?token=${customToken}`;
         
