@@ -30,8 +30,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signIn = () => {
     const discordClientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
+    
+    if (!redirectUri) {
+      alert('Discord redirect URI is not configured. Please check your environment variables.');
+      return;
+    }
+
     const scope = 'identify email';
-    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${encodeURIComponent(redirectUri!)}&response_type=code&scope=${scope}`;
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
     window.location.href = discordAuthUrl;
   };
 
