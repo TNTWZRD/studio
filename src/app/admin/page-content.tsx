@@ -14,13 +14,13 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Calendar, Trash2 } from 'lucide-react';
-import { getStreamers, getEvents } from '@/lib/data';
+import { Trash2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function SubmitButton({ children }: { children: React.ReactNode }) {
@@ -118,19 +118,7 @@ function RemoveStreamerForm({ streamerId }: { streamerId: string }) {
     );
 }
 
-function StreamerList({ initialStreamers }: { initialStreamers: Streamer[] }) {
-    const [streamers, setStreamers] = useState(initialStreamers);
-
-    // This effect is to refresh the list when a server action completes
-    useEffect(() => {
-        const refreshStreamers = async () => {
-            const updatedStreamers = await getStreamers();
-            setStreamers(updatedStreamers);
-        };
-        refreshStreamers();
-    }, [initialStreamers]);
-
-
+function StreamerList({ streamers }: { streamers: Streamer[] }) {
     return (
          <Card>
             <CardHeader>
@@ -315,17 +303,7 @@ function RemoveEventForm({ eventId }: { eventId: string }) {
     );
 }
 
-function EventList({ initialEvents }: { initialEvents: Event[] }) {
-    const [events, setEvents] = useState(initialEvents);
-
-    useEffect(() => {
-        const refreshEvents = async () => {
-            const updatedEvents = await getEvents();
-            setEvents(updatedEvents);
-        };
-        refreshEvents();
-    }, [initialEvents]);
-
+function EventList({ events }: { events: Event[] }) {
     return (
          <Card>
             <CardHeader>
@@ -374,11 +352,11 @@ function AdminPage({ allStreamers, allEvents }: { allStreamers: Streamer[], allE
           </TabsList>
           <TabsContent value="streamers" className="space-y-6 mt-6">
             <AddStreamerForm />
-            <StreamerList initialStreamers={allStreamers} />
+            <StreamerList streamers={allStreamers} />
           </TabsContent>
           <TabsContent value="events" className="space-y-6 mt-6">
              <AddEventForm />
-             <EventList initialEvents={allEvents} />
+             <EventList events={allEvents} />
           </TabsContent>
         </Tabs>
 
