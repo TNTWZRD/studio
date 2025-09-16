@@ -62,7 +62,7 @@ export default function EventsSummary({ events }: { events: Event[] }) {
                                         )}
                                     </div>
                                     <CardHeader>
-                                        <Badge variant={event.status === 'active' ? 'destructive' : 'secondary'} className="w-fit mb-2 capitalize">{event.status}</Badge>
+                                        <Badge variant={event.status === 'live' ? 'destructive' : 'secondary'} className="w-fit mb-2 capitalize">{event.status}</Badge>
                                         <CardTitle>{event.title}</CardTitle>
                                     </CardHeader>
                                     <CardContent className="flex-grow">

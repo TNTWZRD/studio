@@ -1,12 +1,13 @@
-import { getDiscordEventById } from '@/lib/discord';
+import { getEventById } from '@/lib/data';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, MapPin } from 'lucide-react';
+import { Calendar, Clock, Users } from 'lucide-react';
 import { format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
-  const event = await getDiscordEventById(params.id);
+  const event = await getEventById(params.id);
 
   if (!event) {
     notFound();
@@ -35,7 +36,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
             </div>
         )}
 
-        <Badge variant={event.status === 'active' ? 'destructive' : 'secondary'} className="capitalize mb-2">{event.status}</Badge>
+        <Badge variant={event.status === 'live' ? 'destructive' : 'secondary'} className="capitalize mb-2">{event.status}</Badge>
 
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl font-headline mb-4">{event.title}</h1>
 
@@ -51,15 +52,41 @@ export default async function EventDetailPage({ params }: { params: { id: string
                 </div>
              )}
             <div className="flex items-center">
-                <MapPin className="mr-3 h-5 w-5" />
-                <span>{event.location}</span>
+                <Users className="mr-3 h-5 w-5" />
+                <span>{event.participants.length} participants</span>
             </div>
         </div>
         
-        {event.description && (
+        {event.details && (
             <div className="prose dark:prose-invert max-w-none text-lg text-foreground/80 mb-12">
-                <p>{event.description.replace(/\n/g, '<br />')}</p>
+                <p>{event.details.replace(/\n/g, '<br />')}</p>
             </div>
+        )}
+
+        {event.status === 'past' && event.scoreboard && event.scoreboard.length > 0 && (
+          <div>
+            <h2 className="text-3xl font-bold mb-4 font-headline">Scoreboard</h2>
+             <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[100px]">Rank</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Notes</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {event.scoreboard.map((entry) => (
+                        <TableRow key={entry.rank}>
+                            <TableCell className="font-medium">{entry.rank}</TableCell>
+                            <TableCell>{entry.name}</TableCell>
+                            <TableCell>{entry.score}</TableCell>
+                            <TableCell>{entry.notes || '-'}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+          </div>
         )}
       </div>
     </div>

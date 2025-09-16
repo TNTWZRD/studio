@@ -7,8 +7,7 @@ import MediaSummary from '@/components/sections/media-summary';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Event, MediaItem, Streamer } from '@/lib/types';
-import { getDiscordEvents } from '@/lib/discord';
-import { getMedia, getStreamers } from '@/lib/data';
+import { getEvents, getMedia, getStreamers } from '@/lib/data';
 import { AuthHandler } from '@/components/auth/auth-handler';
 import Hero from '@/components/sections/hero';
 
@@ -74,12 +73,11 @@ export default async function Home() {
     const [allStreamers, recentMedia, allEvents] = await Promise.all([
         getStreamers(),
         getMedia(),
-        getDiscordEvents()
+        getEvents()
     ]);
     
-    // Show active events first, then scheduled events.
     const displayEvents = allEvents
-        .filter(e => e.status === 'active' || e.status === 'scheduled')
+        .filter(e => e.status === 'live' || e.status === 'upcoming')
         .slice(0, 3);
         
     const displayMedia = recentMedia.slice(0, 4);

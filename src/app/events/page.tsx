@@ -1,11 +1,11 @@
-import { getDiscordEvents } from '@/lib/discord';
+import { getEvents } from '@/lib/data';
 import { Event } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { Calendar, MapPin } from 'lucide-react';
+import { Calendar, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 function EventCard({ event }: { event: Event }) {
@@ -39,14 +39,14 @@ function EventCard({ event }: { event: Event }) {
             <span>{formattedDate}</span>
           </div>
            <div className="flex items-center text-sm text-muted-foreground">
-            <MapPin className="mr-2 h-4 w-4" />
-            <span>{event.location}</span>
+            <Users className="mr-2 h-4 w-4" />
+            <span>{event.participants.length} participants</span>
           </div>
-          {event.description && <p className="mt-2 text-muted-foreground line-clamp-2">{event.description}</p>}
+          {event.details && <p className="mt-2 text-muted-foreground line-clamp-2">{event.details}</p>}
         </CardContent>
         <CardFooter className="flex justify-between items-center">
             <p className="text-accent-foreground group-hover:underline font-semibold">View Details</p>
-            <Badge variant={event.status === 'active' ? 'destructive' : 'secondary'} className="capitalize">{event.status}</Badge>
+            <Badge variant={event.status === 'live' ? 'destructive' : 'secondary'} className="capitalize">{event.status}</Badge>
         </CardFooter>
       </Card>
     </Link>
@@ -65,17 +65,17 @@ function EventGrid({ events }: { events: Event[] }) {
 }
 
 export default async function EventsPage() {
-  const allEvents = await getDiscordEvents();
-  const upcomingEvents = allEvents.filter(e => e.status === 'scheduled');
-  const liveEvents = allEvents.filter(e => e.status === 'active');
-  const pastEvents = allEvents.filter(e => e.status === 'completed' || e.status === 'canceled');
+  const allEvents = await getEvents();
+  const upcomingEvents = allEvents.filter(e => e.status === 'upcoming');
+  const liveEvents = allEvents.filter(e => e.status === 'live');
+  const pastEvents = allEvents.filter(e => e.status === 'past');
 
   return (
     <div className="container mx-auto py-12">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl font-headline">Community Events</h1>
         <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-          Find out about our upcoming tournaments, community nights, and past glories, live from Discord.
+          Find out about our upcoming tournaments, community nights, and past glories.
         </p>
       </div>
 

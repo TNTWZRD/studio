@@ -1,6 +1,6 @@
 'use server';
 
-import fs from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { Streamer, Event, MediaItem, Config } from '@/lib/types';
 import { PlaceHolderImages, ImagePlaceholder } from './placeholder-images';
@@ -8,7 +8,7 @@ import { PlaceHolderImages, ImagePlaceholder } from './placeholder-images';
 // Helper function to read and parse a JSON file
 async function readJsonFile<T>(filePath: string): Promise<T> {
     const fullPath = path.join(process.cwd(), filePath);
-    const fileContent = await fs.promises.readFile(fullPath, 'utf-8');
+    const fileContent = await fs.readFile(fullPath, 'utf-8');
     return JSON.parse(fileContent);
 }
 
