@@ -4,10 +4,12 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { LogIn } from 'lucide-react';
+import { isAdmin } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  isAdmin: boolean;
   signIn: () => void;
   signOut: () => void;
 }
@@ -17,14 +19,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isUserAdmin, setIsUserAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // Force refresh to get custom claims.
-        await user.getIdToken(true);
+        const tokenResult = await user.getIdTokenResult(true);
+        // Attach claims to user object for easier access
+        (user as any).claims = tokenResult.claims;
+        setUser(user);
+        setIsUserAdmin(isAdmin(user));
+      } else {
+        setUser(null);
+        setIsUserAdmin(false);
       }
-      setUser(user);
       setLoading(false);
     });
 
@@ -47,11 +56,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await firebaseSignOut(auth);
-    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin: isUserAdmin, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

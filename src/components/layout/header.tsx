@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getConfig } from '@/lib/data';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { Menu, MessageCircle, LogIn, LogOut } from 'lucide-react';
+import { Menu, MessageCircle, LogIn, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
@@ -22,7 +22,7 @@ const navLinks = [
 const config = getConfig();
 
 function AuthButton() {
-    const { user, loading, signIn, signOut } = useAuth();
+    const { user, loading, isAdmin, signIn, signOut } = useAuth();
 
     if (loading) {
         return <Skeleton className="h-10 w-24" />;
@@ -57,6 +57,14 @@ function AuthButton() {
                     </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                      <Shield className="mr-2 h-4 w-4" />
+                      <span>Admin</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={signOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
