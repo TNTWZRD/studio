@@ -13,6 +13,13 @@ export async function GET(req: NextRequest) {
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
     const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
 
+    // Diagnostic logging
+    console.log("--- Discord Auth Callback ---");
+    console.log("Client ID:", clientId ? "Loaded" : "MISSING");
+    console.log("Client Secret:", clientSecret ? "Loaded" : "MISSING");
+    console.log("Redirect URI:", redirectUri ? "Loaded" : "MISSING");
+    console.log("--- End Diagnostic ---");
+
     if (!clientId || !clientSecret || !redirectUri) {
         console.error('Missing Discord environment variables');
         return NextResponse.json({ error: 'Server configuration error: Missing Discord credentials.' }, { status: 500 });
