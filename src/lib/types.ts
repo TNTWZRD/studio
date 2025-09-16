@@ -21,13 +21,11 @@ export interface Event {
   id: string;
   title: string;
   start: string;
-  end: string;
-  status: 'upcoming' | 'live' | 'past';
-  participants: { id: string; name: string }[];
-  scoreboard?: ScoreboardEntry[];
-  details: string;
-  media?: string[];
-  image: string;
+  end: string | null;
+  status: 'scheduled' | 'active' | 'completed' | 'canceled';
+  description: string | null;
+  image: string | null;
+  location: string | null;
 }
 
 export interface MediaItem {

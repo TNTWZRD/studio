@@ -12,9 +12,11 @@ import FeaturedStreams from '@/components/sections/featured-streams';
 import Hero from '@/components/sections/hero';
 import LiveStreamers from '@/components/sections/live-streamers';
 import MediaSummary from '@/components/sections/media-summary';
-import { getEvents, getMedia, getStreamers } from '@/lib/data';
-import { Streamer, Event, MediaItem } from '@/lib/types';
-import { useState } from 'react';
+import { getMedia, getStreamers } from '@/lib/data';
+import { Streamer, MediaItem } from '@/lib/types';
+import { useState, Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 
 function AuthHandler() {
     const searchParams = useSearchParams();
@@ -47,11 +49,41 @@ function AuthHandler() {
 }
 
 
+function EventSummarySkeleton() {
+    return (
+         <div className="container mx-auto">
+            <div className="flex flex-col items-center text-center mb-12 md:flex-row md:justify-between md:text-left">
+                <div>
+                    <Skeleton className="h-10 w-64" />
+                    <Skeleton className="h-4 w-80 mt-4" />
+                </div>
+                <Skeleton className="h-10 w-36 mt-4 md:mt-0" />
+            </div>
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="h-full overflow-hidden shadow-lg flex flex-col">
+                        <div className="relative aspect-video bg-muted" />
+                        <CardHeader>
+                            <Skeleton className="h-4 w-20 mb-2" />
+                            <Skeleton className="h-6 w-full" />
+                        </CardHeader>
+                        <CardContent className="flex-grow">
+                             <Skeleton className="h-4 w-48" />
+                        </CardContent>
+                         <CardFooter>
+                            <Skeleton className="h-4 w-24" />
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    )
+}
+
 export default function Home() {
   const [allStreamers, setAllStreamers] = useState<Streamer[]>([]);
   const [liveStreamers, setLiveStreamers] = useState<Streamer[]>([]);
   const [featuredStreamers, setFeaturedStreamers] = useState<Streamer[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [recentMedia, setRecentMedia] = useState<MediaItem[]>([]);
 
   useEffect(() => {
@@ -60,9 +92,6 @@ export default function Home() {
       setAllStreamers(streamers);
       setLiveStreamers(streamers.filter((s) => s.isLive));
       setFeaturedStreamers(streamers.filter((s) => s.featured));
-
-      const events = await getEvents();
-      setUpcomingEvents(events.filter((e) => e.status === 'upcoming').slice(0, 3));
 
       const media = await getMedia();
       setRecentMedia(media.slice(0, 4));
@@ -78,7 +107,9 @@ export default function Home() {
       <LiveStreamers initialLiveStreamers={liveStreamers} />
       <AboutSection />
       <FeaturedStreams streamers={featuredStreamers} />
-      <EventsSummary events={upcomingEvents} />
+      <Suspense fallback={<EventSummarySkeleton />}>
+        <EventsSummary />
+      </Suspense>
       <MediaSummary media={recentMedia} />
     </div>
   );

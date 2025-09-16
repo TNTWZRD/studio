@@ -20,5 +20,16 @@
     "title": "Welcome to my stream!",
     "game": "Variety",
     "featured": false
+  },
+  {
+    "id": "streamer-8",
+    "name": "JimmyDaKingGaming",
+    "platform": "twitch",
+    "platformUrl": "https://www.twitch.tv/jimmydakinggaming",
+    "avatar": "3",
+    "isLive": false,
+    "title": "Welcome to my stream!",
+    "game": "Variety",
+    "featured": false
   }
 ]

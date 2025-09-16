@@ -1,39 +1,52 @@
-import { getEvents } from '@/lib/data';
+import { getDiscordEvents } from '@/lib/discord';
 import { Event } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { Calendar } from 'lucide-react';
+import { Calendar, MapPin } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 function EventCard({ event }: { event: Event }) {
+  const eventDate = new Date(event.start);
+  const formattedDate = isNaN(eventDate.getTime()) ? 'Invalid Date' : format(eventDate, 'MMMM d, yyyy');
+
   return (
     <Link href={`/events/${event.id}`} className="block group">
       <Card className="h-full overflow-hidden shadow-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl flex flex-col">
-        <div className="relative aspect-video">
-          <Image
-            src={event.image}
-            alt={event.title}
-            fill
-            className="object-cover"
-            data-ai-hint="gaming event"
-          />
+        <div className="relative aspect-video bg-secondary">
+          {event.image ? (
+             <Image
+                src={event.image}
+                alt={event.title}
+                fill
+                className="object-cover"
+                data-ai-hint="gaming event"
+             />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+                <Calendar className="w-16 h-16 text-muted-foreground" />
+            </div>
+          )}
         </div>
         <CardHeader>
           <CardTitle>{event.title}</CardTitle>
         </CardHeader>
         <CardContent className="flex-grow">
-          <div className="flex items-center text-sm text-muted-foreground">
+          <div className="flex items-center text-sm text-muted-foreground mb-2">
             <Calendar className="mr-2 h-4 w-4" />
-            <span>{format(new Date(event.start), 'MMMM d, yyyy')}</span>
+            <span>{formattedDate}</span>
           </div>
-          <p className="mt-2 text-muted-foreground line-clamp-2">{event.details}</p>
+           <div className="flex items-center text-sm text-muted-foreground">
+            <MapPin className="mr-2 h-4 w-4" />
+            <span>{event.location}</span>
+          </div>
+          {event.description && <p className="mt-2 text-muted-foreground line-clamp-2">{event.description}</p>}
         </CardContent>
         <CardFooter className="flex justify-between items-center">
             <p className="text-accent-foreground group-hover:underline font-semibold">View Details</p>
-            <Badge variant={event.status === 'live' ? 'destructive' : 'secondary'} className="capitalize">{event.status}</Badge>
+            <Badge variant={event.status === 'active' ? 'destructive' : 'secondary'} className="capitalize">{event.status}</Badge>
         </CardFooter>
       </Card>
     </Link>
@@ -52,17 +65,17 @@ function EventGrid({ events }: { events: Event[] }) {
 }
 
 export default async function EventsPage() {
-  const allEvents = await getEvents();
-  const upcomingEvents = allEvents.filter(e => e.status === 'upcoming');
-  const liveEvents = allEvents.filter(e => e.status === 'live');
-  const pastEvents = allEvents.filter(e => e.status === 'past');
+  const allEvents = await getDiscordEvents();
+  const upcomingEvents = allEvents.filter(e => e.status === 'scheduled');
+  const liveEvents = allEvents.filter(e => e.status === 'active');
+  const pastEvents = allEvents.filter(e => e.status === 'completed' || e.status === 'canceled');
 
   return (
     <div className="container mx-auto py-12">
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl font-headline">Community Events</h1>
         <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-          Find out about our upcoming tournaments, community nights, and past glories.
+          Find out about our upcoming tournaments, community nights, and past glories, live from Discord.
         </p>
       </div>
 
