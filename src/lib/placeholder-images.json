@@ -1,3 +1,17 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    { "id": "1", "description": "Avatar for PlayerOne", "imageUrl": "https://picsum.photos/seed/1/100/100", "imageHint": "person avatar" },
+    { "id": "2", "description": "Avatar for GamerGal", "imageUrl": "https://picsum.photos/seed/2/100/100", "imageHint": "person avatar" },
+    { "id": "3", "description": "Avatar for ProStrats", "imageUrl": "https://picsum.photos/seed/3/100/100", "imageHint": "person avatar" },
+    { "id": "4", "description": "Avatar for TheBuilder", "imageUrl": "https://picsum.photos/seed/4/100/100", "imageHint": "person avatar" },
+    { "id": "5", "description": "Avatar for SpeedRunner", "imageUrl": "https://picsum.photos/seed/5/100/100", "imageHint": "person avatar" },
+    { "id": "hero", "description": "Hero background image", "imageUrl": "https://picsum.photos/seed/hero/1920/1080", "imageHint": "gaming community" },
+    { "id": "10", "description": "Image for weekly scrim event", "imageUrl": "https://picsum.photos/seed/10/600/400", "imageHint": "esports competition" },
+    { "id": "11", "description": "Image for community game night", "imageUrl": "https://picsum.photos/seed/11/600/400", "imageHint": "party game" },
+    { "id": "12", "description": "Image for summer showdown tournament", "imageUrl": "https://picsum.photos/seed/12/600/400", "imageHint": "trophy celebration" },
+    { "id": "20", "description": "Thumbnail for highlights video", "imageUrl": "https://picsum.photos/seed/20/400/225", "imageHint": "gaming montage" },
+    { "id": "21", "description": "Thumbnail for clutch clip", "imageUrl": "https://picsum.photos/seed/21/400/225", "imageHint": "first person" },
+    { "id": "22", "description": "Thumbnail for streaming guide", "imageUrl": "https://picsum.photos/seed/22/400/225", "imageHint": "microphone setup" },
+    { "id": "23", "description": "Thumbnail for tournament VOD", "imageUrl": "https://picsum.photos/seed/23/400/225", "imageHint": "esports arena" }
+  ]
 }

@@ -1,0 +1,55 @@
+
+[
+  {
+    "id": "streamer-1",
+    "name": "PlayerOne",
+    "platform": "twitch",
+    "platformUrl": "https://twitch.tv/playerone",
+    "avatar": "1",
+    "isLive": true,
+    "title": "Grinding ranked matches in Apex Legends",
+    "game": "Apex Legends",
+    "featured": true
+  },
+  {
+    "id": "streamer-2",
+    "name": "GamerGal",
+    "platform": "youtube",
+    "platformUrl": "https://youtube.com/c/gamergal",
+    "avatar": "2",
+    "isLive": true,
+    "title": "Chill Stardew Valley Stream",
+    "game": "Stardew Valley"
+  },
+  {
+    "id": "streamer-3",
+    "name": "ProStrats",
+    "platform": "twitch",
+    "platformUrl": "https://twitch.tv/prostrats",
+    "avatar": "3",
+    "isLive": true,
+    "title": "Valorant Coaching Session",
+    "game": "Valorant"
+  },
+  {
+    "id": "streamer-4",
+    "name": "TheBuilder",
+    "platform": "youtube",
+    "platformUrl": "https://youtube.com/c/thebuilder",
+    "avatar": "4",
+    "isLive": false,
+    "title": "Building a castle in Minecraft",
+    "game": "Minecraft"
+  },
+  {
+    "id": "streamer-5",
+    "name": "SpeedRunner",
+    "platform": "twitch",
+    "platformUrl": "https://twitch.tv/speedrunner",
+    "avatar": "5",
+    "isLive": true,
+    "title": "New world record attempt!",
+    "game": "Celeste",
+    "featured": true
+  }
+]
