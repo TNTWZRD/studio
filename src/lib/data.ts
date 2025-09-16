@@ -8,9 +8,21 @@ import { PlaceHolderImages, ImagePlaceholder } from './placeholder-images';
 // Helper function to read and parse a JSON file
 async function readJsonFile<T>(filePath: string): Promise<T> {
     const fullPath = path.join(process.cwd(), filePath);
-    const fileContent = await fs.readFile(fullPath, 'utf-8');
-    return JSON.parse(fileContent);
+    try {
+        const fileContent = await fs.readFile(fullPath, 'utf-8');
+        return JSON.parse(fileContent);
+    } catch (error) {
+        // If the file doesn't exist or is empty, return a default value
+        if (filePath.endsWith('streams.json') || filePath.endsWith('events.json') || filePath.endsWith('media.json')) {
+            return [] as T;
+        }
+        if (filePath.endsWith('config.json')) {
+            return { discordInviteUrl: '#' } as T;
+        }
+        throw error;
+    }
 }
+
 
 const getImage = (id: string): ImagePlaceholder => {
     const img = PlaceHolderImages.find(p => p.id === id);
@@ -43,13 +55,10 @@ export async function getEvents(): Promise<Event[]> {
 }
 
 export async function getEventById(id: string): Promise<Event | undefined> {
-    const eventsData = await readJsonFile<any[]>('src/data/events.json');
-    const event = eventsData.find(e => e.id === id);
+    const events = await getEvents();
+    const event = events.find(e => e.id === id);
     if (!event) return undefined;
-    return {
-        ...event,
-        image: getImage(event.image).imageUrl
-    };
+    return event;
 }
 
 export async function getMedia(): Promise<MediaItem[]> {
@@ -63,3 +72,5 @@ export async function getMedia(): Promise<MediaItem[]> {
 export async function getConfig(): Promise<Config> {
     return readJsonFile<Config>('src/data/config.json');
 }
+
+    
