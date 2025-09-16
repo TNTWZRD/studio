@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: new URLSearchParams({
-                client_id: process.env.DISCORD_CLIENT_ID!,
+                client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
                 client_secret: process.env.DISCORD_CLIENT_SECRET!,
                 grant_type: 'authorization_code',
                 code: code,
