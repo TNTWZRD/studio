@@ -16,14 +16,13 @@ function AdminAccessDenied() {
   );
 }
 
-
 export function withAdminAuth<P extends object>(WrappedComponent: ComponentType<P>) {
   const WithAdminAuth = (props: P) => {
     const { user, loading, isAdmin } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-      // If loading is finished and there's no user, redirect them.
+      // If loading is finished and there's no user, they can't be an admin.
       if (!loading && !user) {
         router.replace('/'); 
       }
@@ -31,7 +30,6 @@ export function withAdminAuth<P extends object>(WrappedComponent: ComponentType<
 
     if (loading) {
       // Show a loading skeleton while we verify the user's auth state and claims.
-      // This prevents flashing the "Access Denied" page on a slow connection.
       return (
         <div className="container mx-auto py-12">
             <div className="space-y-4">
@@ -40,12 +38,11 @@ export function withAdminAuth<P extends object>(WrappedComponent: ComponentType<
                 <Skeleton className="h-32 w-full" />
             </div>
         </div>
-      )
+      );
     }
 
-    if (!user || !isAdmin) {
-      // If we're done loading and the user is either not logged in or not an admin,
-      // show the access denied page.
+    if (!isAdmin) {
+      // If we're done loading and the user is not an admin, show access denied.
       return <AdminAccessDenied />;
     }
 

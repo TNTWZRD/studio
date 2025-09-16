@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useAuth } from '@/hooks/use-auth';
 
 import AboutSection from '@/components/sections/about';
 import EventsSummary from '@/components/sections/events-summary';
@@ -16,14 +17,19 @@ import { getEvents, getMedia, getStreamers } from '@/lib/data';
 function AuthHandler() {
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { user } = useAuth();
     const token = searchParams.get('token');
+    const roleCheck = searchParams.get('roleCheck');
 
     useEffect(() => {
         if (token) {
             signInWithCustomToken(auth, token)
-                .then(() => {
-                    // Token has been used, now remove it from the URL
-                    // to avoid re-signing in on refresh.
+                .then(async (userCredential) => {
+                    // If roleCheck is present, force a refresh of the token to get new claims.
+                    if (roleCheck === 'true' && userCredential.user) {
+                        await userCredential.user.getIdToken(true);
+                    }
+                    // Clean the URL by removing the token and roleCheck params.
                     router.replace('/', undefined);
                 })
                 .catch((error) => {
@@ -31,7 +37,7 @@ function AuthHandler() {
                     router.replace('/', undefined);
                 });
         }
-    }, [token, router]);
+    }, [token, roleCheck, router]);
 
     return null;
 }

@@ -1,5 +1,6 @@
 import { adminAuth } from '@/lib/firebase-admin';
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_ROLE_IDS } from '@/lib/auth';
 
 async function getGuildMember(accessToken: string, guildId: string) {
     if (!guildId) return null;
@@ -11,7 +12,6 @@ async function getGuildMember(accessToken: string, guildId: string) {
     });
 
     if (!response.ok) {
-        // This can happen if the user is not in the guild.
         if (response.status === 404) {
             return null;
         }
@@ -49,7 +49,6 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // Exchange code for access token
         const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             headers: {
@@ -71,7 +70,6 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: tokenData.error_description || 'Failed to exchange code for token.' }, { status: 400 });
         }
 
-        // Fetch user data from Discord
         const userResponse = await fetch('https://discord.com/api/users/@me', {
             headers: {
                 Authorization: `Bearer ${tokenData.access_token}`,
@@ -83,14 +81,13 @@ export async function GET(req: NextRequest) {
         const { id, username, avatar, email } = userData;
         const uid = `discord:${id}`;
 
-        // Fetch guild member info to get roles
         const memberData = await getGuildMember(tokenData.access_token, guildId!);
+        const userRoles = memberData?.roles || [];
         const customClaims = {
             isGuildMember: !!memberData,
-            roles: memberData?.roles || [],
+            roles: userRoles,
         };
 
-        // Create or update user in Firebase Auth
         try {
             await adminAuth.updateUser(uid, {
                 email: email,
@@ -110,17 +107,18 @@ export async function GET(req: NextRequest) {
             }
         }
         
-        // Set the custom claims
         await adminAuth.setCustomUserClaims(uid, customClaims);
-
-        // Create custom token
         const customToken = await adminAuth.createCustomToken(uid);
 
         const url = req.nextUrl.clone();
-        // Redirect to a dedicated auth handler page or back to the home page.
-        // The client will handle the token.
         url.pathname = '/';
         url.search = `?token=${customToken}`;
+
+        // If the user has an admin role, add a flag to force a client-side token refresh.
+        const isAdmin = userRoles.some((roleId: string) => ADMIN_ROLE_IDS.includes(roleId));
+        if (isAdmin) {
+            url.search += '&roleCheck=true';
+        }
         
         return NextResponse.redirect(url);
 
