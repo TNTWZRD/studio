@@ -31,5 +31,16 @@
     "title": "Welcome to my stream!",
     "game": "Variety",
     "featured": false
+  },
+  {
+    "id": "streamer-9",
+    "name": " Differentbreed",
+    "platform": "youtube",
+    "platformUrl": "https://www.youtube.com/@Differentbreedgaming85",
+    "avatar": "4",
+    "isLive": false,
+    "title": "Welcome to my stream!",
+    "game": "Variety",
+    "featured": false
   }
 ]

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -13,8 +13,9 @@ import Hero from '@/components/sections/hero';
 import LiveStreamers from '@/components/sections/live-streamers';
 import MediaSummary from '@/components/sections/media-summary';
 import { getMedia, getStreamers } from '@/lib/data';
-import { Streamer, MediaItem } from '@/lib/types';
-import { useState, Suspense } from 'react';
+import { getDiscordEvents } from '@/lib/discord';
+import { Streamer, MediaItem, Event } from '@/lib/types';
+import { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 
@@ -80,25 +81,24 @@ function EventSummarySkeleton() {
     )
 }
 
-export default function Home() {
-  const [allStreamers, setAllStreamers] = useState<Streamer[]>([]);
+function PageContent({ 
+    allStreamers: initialStreamers,
+    recentMedia: initialMedia,
+    upcomingEvents
+} : {
+    allStreamers: Streamer[],
+    recentMedia: MediaItem[],
+    upcomingEvents: Event[]
+}) {
+  const [allStreamers, setAllStreamers] = useState<Streamer[]>(initialStreamers);
   const [liveStreamers, setLiveStreamers] = useState<Streamer[]>([]);
   const [featuredStreamers, setFeaturedStreamers] = useState<Streamer[]>([]);
-  const [recentMedia, setRecentMedia] = useState<MediaItem[]>([]);
+  const [recentMedia, setRecentMedia] = useState<MediaItem[]>(initialMedia);
 
   useEffect(() => {
-    const fetchData = async () => {
-      const streamers = await getStreamers();
-      setAllStreamers(streamers);
-      setLiveStreamers(streamers.filter((s) => s.isLive));
-      setFeaturedStreamers(streamers.filter((s) => s.featured));
-
-      const media = await getMedia();
-      setRecentMedia(media.slice(0, 4));
-    };
-
-    fetchData();
-  }, []);
+    setLiveStreamers(allStreamers.filter((s) => s.isLive));
+    setFeaturedStreamers(allStreamers.filter((s) => s.featured));
+  }, [allStreamers]);
 
   return (
     <div className="flex flex-col">
@@ -107,10 +107,40 @@ export default function Home() {
       <LiveStreamers initialLiveStreamers={liveStreamers} />
       <AboutSection />
       <FeaturedStreams streamers={featuredStreamers} />
-      <Suspense fallback={<EventSummarySkeleton />}>
-        <EventsSummary />
+       <Suspense fallback={<EventSummarySkeleton />}>
+        <EventsSummary events={upcomingEvents} />
       </Suspense>
       <MediaSummary media={recentMedia} />
     </div>
+  );
+}
+
+
+export default function Home() {
+  const [allStreamers, setAllStreamers] = useState<Streamer[]>([]);
+  const [recentMedia, setRecentMedia] = useState<MediaItem[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const streamers = await getStreamers();
+      setAllStreamers(streamers);
+
+      const media = await getMedia();
+      setRecentMedia(media.slice(0, 4));
+
+      const allEvents = await getDiscordEvents();
+      setUpcomingEvents(allEvents.filter(e => e.status === 'scheduled' || e.status === 'active').slice(0, 3));
+    };
+
+    fetchData();
+  }, []);
+
+  return (
+      <PageContent 
+        allStreamers={allStreamers} 
+        recentMedia={recentMedia}
+        upcomingEvents={upcomingEvents}
+      />
   );
 }
