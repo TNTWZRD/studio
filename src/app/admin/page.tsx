@@ -4,13 +4,13 @@ import { withAdminAuth } from '@/components/auth/with-admin-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getStreamers } from '@/lib/data';
 import type { Streamer } from '@/lib/types';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useRef } from 'react';
 import { addStreamer, removeStreamer } from '../actions/manage-streamers';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,7 +28,7 @@ function SubmitButton({ children }: { children: React.ReactNode }) {
 function AddStreamerForm() {
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
-    const [state, formAction] = useFormState(addStreamer, {
+    const [state, formAction] = useActionState(addStreamer, {
       success: false,
       message: '',
     });
@@ -85,7 +85,7 @@ function AddStreamerForm() {
 
 function RemoveStreamerForm({ streamerId }: { streamerId: string }) {
     const { toast } = useToast();
-     const [state, formAction] = useFormState(removeStreamer, {
+     const [state, formAction] = useActionState(removeStreamer, {
       success: false,
       message: '',
     });
