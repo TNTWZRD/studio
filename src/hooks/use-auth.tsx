@@ -28,6 +28,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const tokenResult = await user.getIdTokenResult(true);
         // Attach claims to user object for easier access
         (user as any).claims = tokenResult.claims;
+        
+        console.log("Current user's roles:", tokenResult.claims.roles);
+
         setUser(user);
         setIsUserAdmin(isAdmin(user));
       } else {
