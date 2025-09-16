@@ -1,17 +1,14 @@
-
-import { Suspense } from 'react';
-
+import React, { Suspense } from 'react';
 import AboutSection from '@/components/sections/about';
 import EventsSummary from '@/components/sections/events-summary';
 import FeaturedStreams from '@/components/sections/featured-streams';
 import LiveStreamers from '@/components/sections/live-streamers';
 import MediaSummary from '@/components/sections/media-summary';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Event, MediaItem, Streamer } from '@/lib/types';
 import { getDiscordEvents } from '@/lib/discord';
 import { getMedia, getStreamers } from '@/lib/data';
-import React from 'react';
 import { AuthHandler } from '@/components/auth/auth-handler';
 import Hero from '@/components/sections/hero';
 
@@ -74,13 +71,17 @@ function PageContent({
 }
 
 export default async function Home() {
-    const [allStreamers, recentMedia, events] = await Promise.all([
+    const [allStreamers, recentMedia, allEvents] = await Promise.all([
         getStreamers(),
         getMedia(),
         getDiscordEvents()
     ]);
     
-    const displayEvents = events.filter(e => e.status === 'active' || e.status === 'scheduled').slice(0, 3);
+    // Show active events first, then scheduled events.
+    const displayEvents = allEvents
+        .filter(e => e.status === 'active' || e.status === 'scheduled')
+        .slice(0, 3);
+        
     const displayMedia = recentMedia.slice(0, 4);
 
     return (
