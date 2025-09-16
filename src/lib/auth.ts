@@ -1,7 +1,7 @@
 import type { User } from 'firebase/auth';
 
 // IMPORTANT: Replace this with the actual Discord Role ID for your 'Captain' role.
-export const ADMIN_ROLE_IDS = ['YOUR_CAPTAIN_ROLE_ID'];
+export const ADMIN_ROLE_IDS = ['1139347875478917170'];
 
 /**
  * Checks if a user has one of the admin roles.
