@@ -13,6 +13,8 @@ import Hero from '@/components/sections/hero';
 import LiveStreamers from '@/components/sections/live-streamers';
 import MediaSummary from '@/components/sections/media-summary';
 import { getEvents, getMedia, getStreamers } from '@/lib/data';
+import { Streamer, Event, MediaItem } from '@/lib/types';
+import { useState } from 'react';
 
 function AuthHandler() {
     const searchParams = useSearchParams();
@@ -44,13 +46,28 @@ function AuthHandler() {
 
 
 export default function Home() {
-  const allStreamers = getStreamers();
-  const liveStreamers = allStreamers.filter((s) => s.isLive);
-  const featuredStreamers = allStreamers.filter((s) => s.featured);
-  const upcomingEvents = getEvents()
-    .filter((e) => e.status === 'upcoming')
-    .slice(0, 3);
-  const recentMedia = getMedia().slice(0, 4);
+  const [allStreamers, setAllStreamers] = useState<Streamer[]>([]);
+  const [liveStreamers, setLiveStreamers] = useState<Streamer[]>([]);
+  const [featuredStreamers, setFeaturedStreamers] = useState<Streamer[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
+  const [recentMedia, setRecentMedia] = useState<MediaItem[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const streamers = await getStreamers();
+      setAllStreamers(streamers);
+      setLiveStreamers(streamers.filter((s) => s.isLive));
+      setFeaturedStreamers(streamers.filter((s) => s.featured));
+
+      const events = await getEvents();
+      setUpcomingEvents(events.filter((e) => e.status === 'upcoming').slice(0, 3));
+
+      const media = await getMedia();
+      setRecentMedia(media.slice(0, 4));
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <div className="flex flex-col">

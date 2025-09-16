@@ -12,14 +12,14 @@ import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Skeleton } from '../ui/skeleton';
+import { useEffect, useState } from 'react';
+import { Config } from '@/lib/types';
 
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/events', label: 'Events' },
   { href: '/media', label: 'Media' },
 ];
-
-const config = getConfig();
 
 function AuthButton() {
     const { user, loading, isAdmin, signIn, signOut } = useAuth();
@@ -76,6 +76,15 @@ function AuthButton() {
 
 export default function Header() {
   const pathname = usePathname();
+  const [config, setConfig] = useState<Config | null>(null);
+
+  useEffect(() => {
+    async function fetchConfig() {
+      const appConfig = await getConfig();
+      setConfig(appConfig);
+    }
+    fetchConfig();
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -133,12 +142,14 @@ export default function Header() {
           </Sheet>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
-            <Button asChild variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <a href={config.discordInviteUrl} target="_blank" rel="noopener noreferrer">
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    Join Discord
-                </a>
-            </Button>
+            {config && (
+              <Button asChild variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <a href={config.discordInviteUrl} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Join Discord
+                  </a>
+              </Button>
+            )}
             <AuthButton />
         </div>
       </div>

@@ -3,8 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 
-export default function MediaPage() {
-  const mediaItems = getMedia();
+export default async function MediaPage() {
+  const mediaItems = await getMedia();
 
   return (
     <div className="container mx-auto py-12">

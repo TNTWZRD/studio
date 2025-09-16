@@ -51,8 +51,8 @@ function EventGrid({ events }: { events: Event[] }) {
     );
 }
 
-export default function EventsPage() {
-  const allEvents = getEvents();
+export default async function EventsPage() {
+  const allEvents = await getEvents();
   const upcomingEvents = allEvents.filter(e => e.status === 'upcoming');
   const liveEvents = allEvents.filter(e => e.status === 'live');
   const pastEvents = allEvents.filter(e => e.status === 'past');

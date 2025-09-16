@@ -7,8 +7,8 @@ import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function EventDetailPage({ params }: { params: { id: string } }) {
-  const event = getEventById(params.id);
+export default async function EventDetailPage({ params }: { params: { id: string } }) {
+  const event = await getEventById(params.id);
 
   if (!event) {
     notFound();

@@ -1,13 +1,23 @@
 import { Button } from '@/components/ui/button';
 import { getConfig } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Config } from '@/lib/types';
 import { ArrowDown, MessageCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 export default function Hero() {
-  const config = getConfig();
+  const [config, setConfig] = useState<Config | null>(null);
   const heroImage = PlaceHolderImages.find(p => p.id === 'hero');
+
+  useEffect(() => {
+    async function fetchConfig() {
+      const appConfig = await getConfig();
+      setConfig(appConfig);
+    }
+    fetchConfig();
+  }, []);
 
   return (
     <section className="relative h-[60vh] min-h-[400px] w-full text-primary-foreground sm:h-[70vh] md:h-[80vh]">
@@ -31,11 +41,13 @@ export default function Hero() {
             Welcome to AMW Hub. Discover live streams, join events, and connect with a passionate community of gamers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-              <a href={config.discordInviteUrl} target="_blank" rel="noopener noreferrer">
-                <MessageCircle className="mr-2" /> Join Our Discord
-              </a>
-            </Button>
+            {config && (
+              <Button asChild size="lg" variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <a href={config.discordInviteUrl} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="mr-2" /> Join Our Discord
+                </a>
+              </Button>
+            )}
             <Button asChild size="lg" variant="secondary">
               <Link href="#about">
                 Learn More <ArrowDown className="ml-2" />
