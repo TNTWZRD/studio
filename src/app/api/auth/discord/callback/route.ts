@@ -1,6 +1,27 @@
 import { adminAuth } from '@/lib/firebase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 
+async function getGuildMember(accessToken: string, guildId: string) {
+    if (!guildId) return null;
+
+    const response = await fetch(`https://discord.com/api/users/@me/guilds/${guildId}/member`, {
+        headers: {
+            Authorization: `Bearer ${accessToken}`,
+        },
+    });
+
+    if (!response.ok) {
+        // This can happen if the user is not in the guild.
+        if (response.status === 404) {
+            return null;
+        }
+        console.error('Failed to get guild member info:', await response.json());
+        return null;
+    }
+
+    return response.json();
+}
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
@@ -12,12 +33,14 @@ export async function GET(req: NextRequest) {
     const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
     const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
+    const guildId = process.env.DISCORD_GUILD_ID;
 
     // Diagnostic logging
     console.log("--- Discord Auth Callback ---");
     console.log("Client ID:", clientId ? "Loaded" : "MISSING");
     console.log("Client Secret:", clientSecret ? "Loaded" : "MISSING");
     console.log("Redirect URI:", redirectUri ? "Loaded" : "MISSING");
+    console.log("Guild ID:", guildId ? "Loaded" : "MISSING");
     console.log("--- End Diagnostic ---");
 
     if (!clientId || !clientSecret || !redirectUri) {
@@ -60,6 +83,13 @@ export async function GET(req: NextRequest) {
         const { id, username, avatar, email } = userData;
         const uid = `discord:${id}`;
 
+        // Fetch guild member info to get roles
+        const memberData = await getGuildMember(tokenData.access_token, guildId!);
+        const customClaims = {
+            isGuildMember: !!memberData,
+            roles: memberData?.roles || [],
+        };
+
         // Create or update user in Firebase Auth
         try {
             await adminAuth.updateUser(uid, {
@@ -79,6 +109,9 @@ export async function GET(req: NextRequest) {
                 throw error;
             }
         }
+        
+        // Set the custom claims
+        await adminAuth.setCustomUserClaims(uid, customClaims);
 
         // Create custom token
         const customToken = await adminAuth.createCustomToken(uid);
@@ -88,8 +121,6 @@ export async function GET(req: NextRequest) {
         url.pathname = '/';
         url.search = `?token=${customToken}`;
         
-        // This is a simplified approach for client-side token handling
-        // A more robust solution might use server-side cookies
         return NextResponse.redirect(url);
 
     } catch (error: any) {

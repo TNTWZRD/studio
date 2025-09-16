@@ -19,7 +19,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Force refresh to get custom claims.
+        await user.getIdToken(true);
+      }
       setUser(user);
       setLoading(false);
     });
@@ -31,13 +35,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const discordClientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
     const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
     
-    if (!redirectUri) {
-      alert('Discord redirect URI is not configured. Please check your environment variables.');
+    if (!discordClientId || !redirectUri) {
+      alert('Discord authentication is not configured. Please check your environment variables.');
       return;
     }
 
-    const scope = 'identify email';
-    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}`;
+    const scope = 'identify email guilds guilds.members.read';
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${discordClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
     window.location.href = discordAuthUrl;
   };
 
