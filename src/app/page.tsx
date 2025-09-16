@@ -1,54 +1,19 @@
-'use client';
 
-import { useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { signInWithCustomToken } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { useAuth } from '@/hooks/use-auth';
+import { Suspense } from 'react';
 
 import AboutSection from '@/components/sections/about';
 import EventsSummary from '@/components/sections/events-summary';
 import FeaturedStreams from '@/components/sections/featured-streams';
-import Hero from '@/components/sections/hero';
 import LiveStreamers from '@/components/sections/live-streamers';
 import MediaSummary from '@/components/sections/media-summary';
-import { getMedia, getStreamers } from '@/lib/data';
-import { getDiscordEvents } from '@/lib/discord';
-import { Streamer, MediaItem, Event } from '@/lib/types';
-import { useState } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-
-function AuthHandler() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const { user } = useAuth();
-    const token = searchParams.get('token');
-    const roleCheck = searchParams.get('roleCheck');
-
-    useEffect(() => {
-        if (token) {
-            signInWithCustomToken(auth, token)
-                .then(async (userCredential) => {
-                    // If roleCheck is present, force a refresh of the token to get new claims.
-                    if (roleCheck === 'true' && userCredential.user) {
-                        await userCredential.user.getIdToken(true);
-                    }
-                    // Clean the URL by removing the token and roleCheck params.
-                    const newUrl = window.location.pathname;
-                    router.replace(newUrl, undefined);
-                })
-                .catch((error) => {
-                    console.error("Firebase custom token sign-in error", error);
-                    const newUrl = window.location.pathname;
-                    router.replace(newUrl, undefined);
-                });
-        }
-    }, [token, roleCheck, router]);
-
-    return null;
-}
-
+import { Skeleton } from '@/components/ui/skeleton';
+import type { Event, MediaItem, Streamer } from '@/lib/types';
+import { getDiscordEvents } from '@/lib/discord';
+import { getMedia, getStreamers } from '@/lib/data';
+import React from 'react';
+import { AuthHandler } from '@/components/auth/auth-handler';
+import Hero from '@/components/sections/hero';
 
 function EventSummarySkeleton() {
     return (
@@ -82,65 +47,47 @@ function EventSummarySkeleton() {
 }
 
 function PageContent({ 
-    allStreamers: initialStreamers,
-    recentMedia: initialMedia,
-    upcomingEvents
+    allStreamers,
+    recentMedia,
+    upcomingEvents,
 } : {
     allStreamers: Streamer[],
     recentMedia: MediaItem[],
-    upcomingEvents: Event[]
+    upcomingEvents: Event[],
 }) {
-  const [allStreamers, setAllStreamers] = useState<Streamer[]>(initialStreamers);
-  const [liveStreamers, setLiveStreamers] = useState<Streamer[]>([]);
-  const [featuredStreamers, setFeaturedStreamers] = useState<Streamer[]>([]);
-  const [recentMedia, setRecentMedia] = useState<MediaItem[]>(initialMedia);
+    const liveStreamers = allStreamers.filter((s) => s.isLive);
+    const featuredStreamers = allStreamers.filter((s) => s.featured);
 
-  useEffect(() => {
-    setLiveStreamers(allStreamers.filter((s) => s.isLive));
-    setFeaturedStreamers(allStreamers.filter((s) => s.featured));
-  }, [allStreamers]);
-
-  return (
-    <div className="flex flex-col">
-      <AuthHandler />
-      <Hero />
-      <LiveStreamers initialLiveStreamers={liveStreamers} />
-      <AboutSection />
-      <FeaturedStreams streamers={featuredStreamers} />
-       <Suspense fallback={<EventSummarySkeleton />}>
-        <EventsSummary events={upcomingEvents} />
-      </Suspense>
-      <MediaSummary media={recentMedia} />
-    </div>
-  );
+    return (
+        <div className="flex flex-col">
+            <AuthHandler />
+            <Hero />
+            <LiveStreamers initialLiveStreamers={liveStreamers} />
+            <AboutSection />
+            <FeaturedStreams streamers={featuredStreamers} />
+            <Suspense fallback={<EventSummarySkeleton />}>
+                <EventsSummary events={upcomingEvents} />
+            </Suspense>
+            <MediaSummary media={recentMedia} />
+        </div>
+    );
 }
 
+export default async function Home() {
+    const [allStreamers, recentMedia, events] = await Promise.all([
+        getStreamers(),
+        getMedia(),
+        getDiscordEvents()
+    ]);
+    
+    const displayEvents = events.filter(e => e.status === 'active' || e.status === 'scheduled').slice(0, 3);
+    const displayMedia = recentMedia.slice(0, 4);
 
-export default function Home() {
-  const [allStreamers, setAllStreamers] = useState<Streamer[]>([]);
-  const [recentMedia, setRecentMedia] = useState<MediaItem[]>([]);
-  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      const streamers = await getStreamers();
-      setAllStreamers(streamers);
-
-      const media = await getMedia();
-      setRecentMedia(media.slice(0, 4));
-
-      const allEvents = await getDiscordEvents();
-      setUpcomingEvents(allEvents.filter(e => e.status === 'scheduled' || e.status === 'active').slice(0, 3));
-    };
-
-    fetchData();
-  }, []);
-
-  return (
-      <PageContent 
-        allStreamers={allStreamers} 
-        recentMedia={recentMedia}
-        upcomingEvents={upcomingEvents}
-      />
-  );
+    return (
+        <PageContent 
+            allStreamers={allStreamers} 
+            recentMedia={displayMedia}
+            upcomingEvents={displayEvents}
+        />
+    );
 }

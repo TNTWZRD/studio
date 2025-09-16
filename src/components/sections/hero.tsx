@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { getConfig } from '@/lib/data';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
