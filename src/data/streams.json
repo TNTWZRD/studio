@@ -9,5 +9,16 @@
     "title": "Welcome to my stream!",
     "game": "Variety",
     "featured": false
+  },
+  {
+    "id": "streamer-7",
+    "name": "TNTWZRD",
+    "platform": "twitch",
+    "platformUrl": "https://twitch.tv/tntwzrd",
+    "avatar": "2",
+    "isLive": false,
+    "title": "Welcome to my stream!",
+    "game": "Variety",
+    "featured": false
   }
 ]

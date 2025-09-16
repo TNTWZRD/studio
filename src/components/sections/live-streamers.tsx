@@ -68,67 +68,68 @@ export default function LiveStreamers({ initialLiveStreamers }: { initialLiveStr
     }
   }, [initialLiveStreamers, toast]);
 
-  if (loading) {
-    return (
-      <div className="bg-primary text-primary-foreground py-4">
-        <div className="container mx-auto">
-            <h2 className="mb-4 text-center text-2xl font-bold tracking-tight">Now Live</h2>
-            <div className="flex space-x-4 overflow-x-auto pb-4">
-            {[...Array(3)].map((_, i) => (
-                <Card key={i} className="w-64 flex-shrink-0">
-                <CardContent className="p-3">
-                    <div className="flex items-center space-x-3">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <div className="space-y-2 flex-1">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-4 w-1/2" />
-                    </div>
-                    </div>
-                </CardContent>
-                </Card>
-            ))}
-            </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (assessedStreamers.length === 0) {
+  if (assessedStreamers.length === 0 && !loading) {
     return null;
   }
-  
+
   return (
-    <div className="bg-primary text-primary-foreground py-4 -mt-16 relative z-20 shadow-lg">
+    <section className="py-16 sm:py-24 bg-primary text-primary-foreground">
       <div className="container mx-auto">
-        <h2 className="mb-4 text-center text-2xl font-bold tracking-tight">Now Live</h2>
-        <div className="flex space-x-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-accent scrollbar-track-primary-foreground/10">
-          {assessedStreamers.map((streamer) => (
-            <a key={streamer.name} href={streamer.platformUrl} target="_blank" rel="noopener noreferrer" className="block w-72 flex-shrink-0">
-              <Card className="bg-card/10 text-primary-foreground border-border/20 hover:bg-card/20 transition-colors">
-                <CardContent className="p-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="relative">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={streamer.avatar} alt={streamer.name} />
-                        <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <Circle className="absolute bottom-0 right-0 h-4 w-4 fill-green-500 stroke-primary" />
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <p className="font-semibold truncate">{streamer.name}</p>
-                      <p className="text-sm truncate text-primary-foreground/80" title={streamer.title}>{streamer.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <PlatformIcon platform={streamer.platform} />
-                        <p className="text-sm truncate text-primary-foreground/60">{streamer.game}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </a>
-          ))}
+        <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl font-headline">Now Live</h2>
+            <p className="mt-4 max-w-2xl mx-auto text-lg text-primary-foreground/80">
+                Check out who from the community is streaming right now.
+            </p>
         </div>
+        {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="bg-card/10 text-primary-foreground border-border/20">
+                        <CardContent className="p-4">
+                            <div className="flex items-center space-x-4">
+                                <Skeleton className="h-16 w-16 rounded-full" />
+                                <div className="space-y-2 flex-1">
+                                    <Skeleton className="h-5 w-3/4" />
+                                    <Skeleton className="h-4 w-1/2" />
+                                    <Skeleton className="h-4 w-1/3" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {assessedStreamers.map((streamer) => (
+                <a key={streamer.name} href={streamer.platformUrl} target="_blank" rel="noopener noreferrer" className="block group">
+                <Card className="bg-card/10 text-primary-foreground border-border/20 hover:bg-card/20 transition-colors h-full">
+                    <CardContent className="p-4">
+                    <div className="flex items-start space-x-4">
+                        <div className="relative">
+                            <Avatar className="h-16 w-16">
+                                <AvatarImage src={streamer.avatar} alt={streamer.name} />
+                                <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="absolute -bottom-1 -right-1 flex items-center justify-center h-6 w-6 rounded-full bg-green-500 border-2 border-primary">
+                               <Circle className="h-2.5 w-2.5 fill-white stroke-white" />
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                        <p className="font-bold text-lg truncate group-hover:underline">{streamer.name}</p>
+                        <p className="text-sm truncate text-primary-foreground/80 font-medium" title={streamer.title}>{streamer.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <PlatformIcon platform={streamer.platform} />
+                            <p className="text-sm truncate text-primary-foreground/60">{streamer.game}</p>
+                        </div>
+                        </div>
+                    </div>
+                    </CardContent>
+                </Card>
+                </a>
+            ))}
+            </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }

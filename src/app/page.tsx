@@ -32,11 +32,13 @@ function AuthHandler() {
                         await userCredential.user.getIdToken(true);
                     }
                     // Clean the URL by removing the token and roleCheck params.
-                    router.replace('/', undefined);
+                    const newUrl = window.location.pathname;
+                    router.replace(newUrl, undefined);
                 })
                 .catch((error) => {
                     console.error("Firebase custom token sign-in error", error);
-                    router.replace('/', undefined);
+                    const newUrl = window.location.pathname;
+                    router.replace(newUrl, undefined);
                 });
         }
     }, [token, roleCheck, router]);
