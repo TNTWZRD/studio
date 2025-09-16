@@ -2,6 +2,8 @@ import type { User } from 'firebase/auth';
 
 // Add any Discord Role ID here that you want to have admin access.
 export const ADMIN_ROLE_IDS = [
+    '1091908798953836557', // Overlord
+    '1092165075558744144', // Queen
     '1139347875478917170', // Captain
     // You can add more role IDs here, for example:
     // 'YOUR_OTHER_ROLE_ID',
