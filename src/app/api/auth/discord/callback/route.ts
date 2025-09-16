@@ -6,7 +6,16 @@ export async function GET(req: NextRequest) {
     const code = searchParams.get('code');
 
     if (!code) {
-        return NextResponse.json({ error: 'Code not found' }, { status: 400 });
+        return NextResponse.json({ error: 'Code not found in query parameters.' }, { status: 400 });
+    }
+    
+    const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID;
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+    const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
+
+    if (!clientId || !clientSecret || !redirectUri) {
+        console.error('Missing Discord environment variables');
+        return NextResponse.json({ error: 'Server configuration error: Missing Discord credentials.' }, { status: 500 });
     }
 
     try {
@@ -17,18 +26,19 @@ export async function GET(req: NextRequest) {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
             body: new URLSearchParams({
-                client_id: process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID!,
-                client_secret: process.env.DISCORD_CLIENT_SECRET!,
+                client_id: clientId,
+                client_secret: clientSecret,
                 grant_type: 'authorization_code',
                 code: code,
-                redirect_uri: process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI!,
+                redirect_uri: redirectUri,
             }),
         });
 
         const tokenData = await tokenResponse.json();
 
         if (tokenData.error) {
-            return NextResponse.json({ error: tokenData.error_description }, { status: 400 });
+            console.error('Discord token exchange error:', tokenData);
+            return NextResponse.json({ error: tokenData.error_description || 'Failed to exchange code for token.' }, { status: 400 });
         }
 
         // Fetch user data from Discord
@@ -67,6 +77,7 @@ export async function GET(req: NextRequest) {
         const customToken = await adminAuth.createCustomToken(uid);
 
         const url = req.nextUrl.clone();
+        // Redirect to the base URL of your application
         url.pathname = '/';
         url.search = `?token=${customToken}`;
         
@@ -74,8 +85,8 @@ export async function GET(req: NextRequest) {
         // A more robust solution might use server-side cookies
         return NextResponse.redirect(url);
 
-    } catch (error) {
-        console.error('Discord auth error:', error);
-        return NextResponse.json({ error: 'Authentication failed' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Discord auth callback error:', error);
+        return NextResponse.json({ error: 'Internal Server Error during authentication.', details: error.message }, { status: 500 });
     }
 }
