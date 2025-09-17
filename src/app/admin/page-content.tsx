@@ -6,7 +6,7 @@ import type { Event, Streamer } from '@/lib/types';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { addStreamer, removeStreamer, assignStreamerToUser } from '../actions/manage-streamers';
-import { addEvent, removeEvent } from '../actions/manage-events';
+import { addEvent, removeEvent, updateEvent } from '../actions/manage-events';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Edit } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 type AuthUser = { uid: string; displayName: string | undefined; email: string | undefined };
 
@@ -277,6 +278,136 @@ function AddEventForm() {
     );
 }
 
+function EditEventDialog({ event }: { event: Event }) {
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    const [startDate, setStartDate] = useState<Date | undefined>(new Date(event.start));
+    const [endDate, setEndDate] = useState<Date | undefined>(event.end ? new Date(event.end) : undefined);
+    const [state, formAction] = useActionState(updateEvent, {
+        success: false,
+        message: '',
+    });
+
+     useEffect(() => {
+        if (state.message) {
+            toast({
+                title: state.success ? 'Success!' : 'Error',
+                description: state.message,
+                variant: state.success ? 'default' : 'destructive',
+            });
+            if (state.success) {
+                setOpen(false);
+            }
+        }
+    }, [state, toast]);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit Event</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Event</DialogTitle>
+                    <DialogDescription>
+                        Make changes to the event here. Click save when you're done.
+                    </DialogDescription>
+                </DialogHeader>
+                <form action={formAction} className="space-y-4">
+                    <input type="hidden" name="id" value={event.id} />
+                    <div className="space-y-2">
+                        <Label htmlFor="title">Event Title</Label>
+                        <Input id="title" name="title" defaultValue={event.title} required />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                            <Label htmlFor="start">Start Date & Time</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !startDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {startDate ? format(startDate, "PPP p") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={startDate}
+                                        onSelect={setStartDate}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                             <input type="hidden" name="start" value={startDate?.toISOString()} />
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="end">End Date & Time</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !endDate && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {endDate ? format(endDate, "PPP p") : <span>Pick a date</span>}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                <Calendar
+                                    mode="single"
+                                    selected={endDate}
+                                    onSelect={setEndDate}
+                                    initialFocus
+                                />
+                                </PopoverContent>
+                            </Popover>
+                           <input type="hidden" name="end" value={endDate?.toISOString()} />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="details">Details</Label>
+                        <Textarea id="details" name="details" defaultValue={event.details} required />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="status">Status</Label>
+                        <Select name="status" defaultValue={event.status} required>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="upcoming">Upcoming</SelectItem>
+                                <SelectItem value="live">Live</SelectItem>
+                                <SelectItem value="past">Past</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                     <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="secondary">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <SubmitButton>Save Changes</SubmitButton>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function RemoveEventForm({ eventId }: { eventId: string }) {
     const { toast } = useToast();
      const [state, formAction] = useActionState(removeEvent, {
@@ -310,7 +441,7 @@ function EventList({ events }: { events: Event[] }) {
          <Card>
             <CardHeader>
                 <CardTitle>Manage Events</CardTitle>
-                <CardDescription>Add or remove events from the site.</CardDescription>
+                <CardDescription>Add, edit, or remove events from the site.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
@@ -328,7 +459,8 @@ function EventList({ events }: { events: Event[] }) {
                                 <TableCell className="font-medium">{event.title}</TableCell>
                                 <TableCell className="capitalize">{event.status}</TableCell>
                                 <TableCell>{format(new Date(event.start), 'PP')}</TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="text-right flex items-center justify-end">
+                                    <EditEventDialog event={event} />
                                     <RemoveEventForm eventId={event.id} />
                                 </TableCell>
                             </TableRow>

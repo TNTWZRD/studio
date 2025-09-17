@@ -8,13 +8,19 @@ import { Event } from '@/lib/types';
 
 const eventsPath = path.join(process.cwd(), 'src', 'data', 'events.json');
 
-const AddEventSchema = z.object({
+const EventSchema = z.object({
     title: z.string().min(1, 'Title is required.'),
-    start: z.string().datetime('Start date is required.'),
-    end: z.string().datetime('End date is required.'),
+    start: z.string().min(1, 'Start date is required.'),
+    end: z.string().min(1, 'End date is required.'),
     details: z.string().min(1, 'Details are required.'),
     status: z.enum(['upcoming', 'live', 'past']),
 });
+
+const AddEventSchema = EventSchema;
+const UpdateEventSchema = EventSchema.extend({
+    id: z.string().min(1),
+});
+
 
 type FormState = {
     success: boolean;
@@ -76,6 +82,49 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
         revalidatePath('/events');
         
         return { success: true, message: `Event "${title}" has been added successfully.` };
+
+    } catch (error: any) {
+        return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+export async function updateEvent(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = UpdateEventSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
+        return {
+            success: false,
+            message: firstError || 'Invalid data provided.',
+        };
+    }
+
+    const { id, title, start, end, details, status } = validatedFields.data;
+
+    try {
+        const events = await readEventsFile();
+        const eventIndex = events.findIndex((e) => e.id === id);
+
+        if (eventIndex === -1) {
+            return { success: false, message: "Event not found." };
+        }
+        
+        events[eventIndex] = {
+            ...events[eventIndex],
+            title,
+            start,
+            end,
+            details,
+            status
+        };
+
+        await writeEventsFile(events);
+
+        revalidatePath('/');
+        revalidatePath('/admin');
+        revalidatePath('/events');
+        
+        return { success: true, message: `Event "${title}" has been updated successfully.` };
 
     } catch (error: any) {
         return { success: false, message: error.message || 'An unexpected error occurred.' };
