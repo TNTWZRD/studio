@@ -52,5 +52,16 @@
     "title": "Welcome to my stream!",
     "game": "Variety",
     "featured": false
+  },
+  {
+    "id": "streamer-10",
+    "name": "TNTWZRD",
+    "platform": "youtube",
+    "platformUrl": "https://youtube.com/tntwzrd",
+    "avatar": "5",
+    "isLive": false,
+    "title": "Welcome to my stream!",
+    "game": "Variety",
+    "featured": false
   }
 ]

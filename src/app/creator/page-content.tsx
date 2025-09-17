@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { MediaItem, Streamer } from '@/lib/types';
-import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon } from 'lucide-react';
+import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon, User } from 'lucide-react';
 import { addMedia, removeMedia, updateMedia } from '../actions/manage-media';
 import { useAuth } from '@/hooks/use-auth';
 import { updateSchedule } from '../actions/manage-streamers';
@@ -303,7 +303,7 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Manage Your Stream Schedule</CardTitle>
+                <CardTitle>Manage Schedule for: {streamer.name} ({streamer.platform})</CardTitle>
                 <CardDescription>Let the community know when you'll be live. All times are for display only.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -414,35 +414,40 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
 
 function CreatorPageComponent({ allStreamers, allMedia }: { allStreamers: Streamer[], allMedia: MediaItem[] }) {
     const { user } = useAuth();
-
-    // Find the streamer profile that matches the logged-in user. This is a simple name match.
-    const userStreamerProfile = allStreamers.find(s => s.name.toLowerCase() === user?.displayName?.toLowerCase());
-    const userMedia = allMedia.filter(m => m.creator.toLowerCase() === user?.displayName?.toLowerCase());
+    
+    const userStreamerProfiles = user ? allStreamers.filter(s => s.discordUserId === user.uid) : [];
+    const userMedia = user ? allMedia.filter(m => m.creator.toLowerCase() === user.displayName?.toLowerCase()) : [];
 
   return (
     <div className="container mx-auto py-12">
       <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl font-headline">Creator Dashboard</h1>
+        <div>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl font-headline">Creator Dashboard</h1>
+            <p className="flex items-center gap-2 mt-2 text-muted-foreground">
+                <User /> Managing content as <span className="font-semibold text-foreground">{user?.displayName}</span>
+            </p>
+        </div>
+
 
         <Tabs defaultValue="media" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="media">Manage Media</TabsTrigger>
-            <TabsTrigger value="schedule">Manage Schedule</TabsTrigger>
+            <TabsTrigger value="schedule">Manage Schedules</TabsTrigger>
           </TabsList>
           <TabsContent value="media" className="space-y-6 mt-6">
             <AddMediaForm />
             <MediaList media={userMedia} />
           </TabsContent>
           <TabsContent value="schedule" className="space-y-6 mt-6">
-            {userStreamerProfile ? (
-                 <ScheduleManager streamer={userStreamerProfile} />
+            {userStreamerProfiles.length > 0 ? (
+                userStreamerProfiles.map(profile => <ScheduleManager key={profile.id} streamer={profile} />)
             ) : (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Schedule Not Available</CardTitle>
+                        <CardTitle>No Streamer Profiles Assigned</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-muted-foreground">We couldn't find a streamer profile matching your Discord name ({user?.displayName}). Please ensure your name matches exactly with the streamer list, or contact an admin.</p>
+                        <p className="text-muted-foreground">We couldn't find any streamer profiles assigned to your Discord account. Please contact an admin to have your streamer profile(s) linked to your account.</p>
                     </CardContent>
                 </Card>
             )}

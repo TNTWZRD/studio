@@ -5,6 +5,7 @@ import path from 'path';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { Streamer } from '@/lib/types';
+import { adminAuth } from '@/lib/firebase-admin';
 
 const streamersPath = path.join(process.cwd(), 'src', 'data', 'streams.json');
 
@@ -172,5 +173,54 @@ export async function updateSchedule(prevState: FormState, formData: FormData): 
         return { success: true, message: 'Schedule updated successfully.' };
     } catch (e: any) {
         return { success: false, message: e.message || 'An error occurred.' };
+    }
+}
+
+const AssignStreamerSchema = z.object({
+  streamerId: z.string().min(1),
+  userId: z.string(), // Can be empty string to unassign
+});
+
+export async function assignStreamerToUser(prevState: FormState, formData: FormData): Promise<FormState> {
+  const validatedFields = AssignStreamerSchema.safeParse(Object.fromEntries(formData.entries()));
+
+  if (!validatedFields.success) {
+    return { success: false, message: 'Invalid data provided.' };
+  }
+
+  const { streamerId, userId } = validatedFields.data;
+
+  try {
+    const streamers = await readStreamersFile();
+    const streamerIndex = streamers.findIndex((s) => s.id === streamerId);
+
+    if (streamerIndex === -1) {
+      return { success: false, message: 'Streamer not found.' };
+    }
+
+    streamers[streamerIndex].discordUserId = userId === 'unassign' ? undefined : userId;
+
+    await writeStreamersFile(streamers);
+    
+    revalidatePath('/admin');
+    revalidatePath('/creator');
+
+    return { success: true, message: 'Streamer assignment updated successfully.' };
+  } catch (error: any) {
+    return { success: false, message: error.message || 'An unexpected error occurred.' };
+  }
+}
+
+export async function getFirebaseAuthUsers() {
+    try {
+        const userRecords = await adminAuth.listUsers();
+        return userRecords.users.map(user => ({
+            uid: user.uid,
+            displayName: user.displayName || 'No display name',
+            email: user.email,
+        }));
+    } catch (error) {
+        console.error('Error fetching Firebase Auth users:', error);
+        return [];
     }
 }

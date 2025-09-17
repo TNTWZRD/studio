@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Event, Streamer } from '@/lib/types';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { addStreamer, removeStreamer } from '../actions/manage-streamers';
+import { addStreamer, removeStreamer, assignStreamerToUser } from '../actions/manage-streamers';
 import { addEvent, removeEvent } from '../actions/manage-events';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,8 @@ import { format } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+type AuthUser = { uid: string; displayName: string | undefined; email: string | undefined };
 
 function SubmitButton({ children }: { children: React.ReactNode }) {
   const { pending } = useFormStatus();
@@ -136,7 +138,7 @@ function StreamerList({ streamers }: { streamers: Streamer[] }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {streamers.map((streamer: Streamer) => (
+                        {streamers.map((streamer) => (
                             <TableRow key={streamer.id}>
                                 <TableCell>
                                     <Avatar>
@@ -338,17 +340,95 @@ function EventList({ events }: { events: Event[] }) {
     );
 }
 
+function AssignStreamerForm({ streamer, authUsers }: { streamer: Streamer; authUsers: AuthUser[] }) {
+  const { toast } = useToast();
+  const [state, formAction] = useActionState(assignStreamerToUser, { success: false, message: '' });
 
-function AdminPage({ allStreamers, allEvents }: { allStreamers: Streamer[], allEvents: Event[] }) {
+  useEffect(() => {
+    if (state.message) {
+      toast({
+        title: state.success ? 'Success' : 'Error',
+        description: state.message,
+        variant: state.success ? 'default' : 'destructive',
+      });
+    }
+  }, [state, toast]);
+
+  return (
+    <form action={formAction} className="flex items-center gap-2">
+      <input type="hidden" name="streamerId" value={streamer.id} />
+      <Select name="userId" defaultValue={streamer.discordUserId}>
+        <SelectTrigger>
+          <SelectValue placeholder="Assign to user..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="unassign">-- Unassign --</SelectItem>
+          {authUsers.map(user => (
+            <SelectItem key={user.uid} value={user.uid}>
+              {user.displayName} ({user.email})
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <SubmitButton>Save</SubmitButton>
+    </form>
+  );
+}
+
+function StreamerAssignmentList({ streamers, authUsers }: { streamers: Streamer[]; authUsers: AuthUser[] }) {
+    const sortedStreamers = [...streamers].sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Assign Streamer Profiles</CardTitle>
+        <CardDescription>
+          Link a streamer profile to a logged-in Discord user to grant them access to the Creator Dashboard.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Streamer</TableHead>
+              <TableHead>Assign to User</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedStreamers.map((streamer) => (
+              <TableRow key={streamer.id}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6">
+                        <AvatarImage src={streamer.avatar} alt={streamer.name}/>
+                        <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span>{streamer.name} ({streamer.platform})</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <AssignStreamerForm streamer={streamer} authUsers={authUsers} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+function AdminPage({ allStreamers, allEvents, authUsers }: { allStreamers: Streamer[], allEvents: Event[], authUsers: AuthUser[] }) {
   return (
     <div className="container mx-auto py-12">
       <div className="max-w-4xl mx-auto space-y-8">
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl font-headline">Admin Dashboard</h1>
 
         <Tabs defaultValue="streamers" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="streamers">Manage Streamers</TabsTrigger>
             <TabsTrigger value="events">Manage Events</TabsTrigger>
+            <TabsTrigger value="assignments">Assign Streamers</TabsTrigger>
           </TabsList>
           <TabsContent value="streamers" className="space-y-6 mt-6">
             <AddStreamerForm />
@@ -357,6 +437,9 @@ function AdminPage({ allStreamers, allEvents }: { allStreamers: Streamer[], allE
           <TabsContent value="events" className="space-y-6 mt-6">
              <AddEventForm />
              <EventList events={allEvents} />
+          </TabsContent>
+          <TabsContent value="assignments" className="space-y-6 mt-6">
+              <StreamerAssignmentList streamers={allStreamers} authUsers={authUsers} />
           </TabsContent>
         </Tabs>
 

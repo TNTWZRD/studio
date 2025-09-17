@@ -1,13 +1,13 @@
 import { getStreamers, getEvents } from "@/lib/data";
+import { getFirebaseAuthUsers } from "../actions/manage-streamers";
 import AdminPage from "./page-content";
 
 export default async function AdminLayout() {
-    const [allStreamers, allEvents] = await Promise.all([
+    const [allStreamers, allEvents, authUsers] = await Promise.all([
         getStreamers(),
-        getEvents()
+        getEvents(),
+        getFirebaseAuthUsers()
     ]);
     
-    return <AdminPage allStreamers={allStreamers} allEvents={allEvents} />;
+    return <AdminPage allStreamers={allStreamers} allEvents={allEvents} authUsers={authUsers} />;
 }
-
-    

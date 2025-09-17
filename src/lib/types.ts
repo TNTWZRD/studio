@@ -10,6 +10,7 @@ export interface Streamer {
   featured?: boolean;
   schedule?: { day: string; time: string }[];
   oneTimeEvents?: { id: string; date: string; time: string; title: string }[];
+  discordUserId?: string;
 }
 
 export interface ScoreboardEntry {
