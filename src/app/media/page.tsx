@@ -37,7 +37,7 @@ function getYouTubeVideoId(url: string): string | null {
 
 function MediaCard({ item }: { item: MediaItem }) {
   const [open, setOpen] = useState(false);
-  const youTubeId = item.type === 'video' || item.type === 'clip' ? getYouTubeVideoId(item.url) : null;
+  const youTubeId = item.type === 'video' || item.type === 'clip' || item.type === 'short' ? getYouTubeVideoId(item.url) : null;
 
   if (youTubeId) {
     return (

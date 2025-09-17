@@ -33,7 +33,7 @@ export interface Event {
 
 export interface MediaItem {
   id: string;
-  type: 'video' | 'clip' | 'stream' | 'guide';
+  type: 'video' | 'clip' | 'stream' | 'guide' | 'short';
   title: string;
   thumbnail: string;
   url: string;
