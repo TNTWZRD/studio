@@ -1,9 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, Suspense } from 'react';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { isAdmin, canPost, isGuildMember } from '@/lib/auth';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { signInWithCustomToken } from 'firebase/auth';
+
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +19,39 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+
+// This internal component handles the client-side logic of parsing the token from the URL
+// and signing the user in. It's wrapped in Suspense because it uses useSearchParams().
+function AuthTokenProcessor() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+    const token = searchParams.get('token');
+    const roleCheck = searchParams.get('roleCheck');
+
+    useEffect(() => {
+        if (token) {
+            signInWithCustomToken(auth, token)
+                .then(async (userCredential) => {
+                    // After sign-in, force a token refresh to get custom claims if specified.
+                    if (roleCheck === 'true' && userCredential.user) {
+                        await userCredential.user.getIdToken(true);
+                    }
+                    // Clean the URL by removing the token parameter.
+                    router.replace(pathname, { scroll: false });
+                })
+                .catch((error) => {
+                    console.error("Firebase custom token sign-in error", error);
+                    // Still clean the URL on error.
+                    router.replace(pathname, { scroll: false });
+                });
+        }
+    }, [token, roleCheck, router, pathname]);
+
+    return null; // This component does not render anything.
+}
+
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -82,7 +118,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{ user, loading, isAdmin: isUserAdmin, canPost: canUserPost, isMember: isUserMember, signIn, signOut }}>
-      {children}
+        <Suspense>
+            <AuthTokenProcessor />
+        </Suspense>
+        {children}
     </AuthContext.Provider>
   );
 };
