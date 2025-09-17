@@ -13,9 +13,17 @@ const mediaPath = path.join(process.cwd(), 'src', 'data', 'media.json');
 const AddMediaSchema = z.object({
     title: z.string().min(1, 'Title is required.'),
     url: z.string().url('A valid URL is required.'),
-    type: z.enum(['video', 'clip', 'stream', 'guide']),
+    type: z.enum(['video', 'clip', 'stream', 'guide', 'short']),
     creator: z.string().min(1, 'Creator name is required.'),
 });
+
+const UpdateMediaSchema = z.object({
+    id: z.string().min(1),
+    title: z.string().min(1, 'Title is required.'),
+    url: z.string().url('A valid URL is required.'),
+    type: z.enum(['video', 'clip', 'stream', 'guide', 'short']),
+});
+
 
 type FormState = {
     success: boolean;
@@ -76,6 +84,48 @@ export async function addMedia(prevState: FormState, formData: FormData): Promis
         revalidatePath('/media');
         
         return { success: true, message: `Media "${title}" has been added successfully.` };
+
+    } catch (error: any) {
+        return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+
+export async function updateMedia(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = UpdateMediaSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
+        return {
+            success: false,
+            message: firstError || 'Invalid data provided.',
+        };
+    }
+
+    const { id, title, url, type } = validatedFields.data;
+
+    try {
+        const media = await readMediaFile();
+        const mediaIndex = media.findIndex((m) => m.id === id);
+
+        if (mediaIndex === -1) {
+            return { success: false, message: "Media not found." };
+        }
+
+        // You might want to add an ownership check here in a real app
+        // For now, we assume if you can call this action, you have permission.
+        
+        media[mediaIndex].title = title;
+        media[mediaIndex].url = url;
+        media[mediaIndex].type = type;
+
+        await writeMediaFile(media);
+
+        revalidatePath('/');
+        revalidatePath('/creator');
+        revalidatePath('/media');
+        
+        return { success: true, message: `Media "${title}" has been updated successfully.` };
 
     } catch (error: any) {
         return { success: false, message: error.message || 'An unexpected error occurred.' };

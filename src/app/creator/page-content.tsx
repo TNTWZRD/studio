@@ -12,10 +12,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { MediaItem, Streamer } from '@/lib/types';
-import { Trash2, PlusCircle, MinusCircle } from 'lucide-react';
-import { addMedia, removeMedia } from '../actions/manage-media';
+import { Trash2, PlusCircle, MinusCircle, Edit } from 'lucide-react';
+import { addMedia, removeMedia, updateMedia } from '../actions/manage-media';
 import { useAuth } from '@/hooks/use-auth';
 import { updateSchedule } from '../actions/manage-streamers';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 
 function SubmitButton({ children, variant }: { children: React.ReactNode, variant?: any }) {
@@ -78,6 +79,7 @@ function AddMediaForm() {
                                     <SelectItem value="clip">Clip</SelectItem>
                                     <SelectItem value="stream">Stream VOD</SelectItem>
                                     <SelectItem value="guide">Guide</SelectItem>
+                                    <SelectItem value="short">Short</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -90,6 +92,81 @@ function AddMediaForm() {
                 </form>
             </CardContent>
         </Card>
+    );
+}
+
+function EditMediaDialog({ item }: { item: MediaItem }) {
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    const [state, formAction] = useActionState(updateMedia, {
+        success: false,
+        message: '',
+    });
+
+     useEffect(() => {
+        if (state.message) {
+            toast({
+                title: state.success ? 'Success!' : 'Error',
+                description: state.message,
+                variant: state.success ? 'default' : 'destructive',
+            });
+            if (state.success) {
+                setOpen(false);
+            }
+        }
+    }, [state, toast]);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit Media</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Media</DialogTitle>
+                    <DialogDescription>
+                        Make changes to your media post here. Click save when you're done.
+                    </DialogDescription>
+                </DialogHeader>
+                <form action={formAction} className="space-y-4">
+                    <input type="hidden" name="id" value={item.id} />
+                    <div className="space-y-2">
+                        <Label htmlFor="title">Title</Label>
+                        <Input id="title" name="title" defaultValue={item.title} required />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="url">URL</Label>
+                        <Input id="url" name="url" type="url" defaultValue={item.url} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="type">Media Type</Label>
+                        <Select name="type" defaultValue={item.type} required>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="video">Video</SelectItem>
+                                <SelectItem value="clip">Clip</SelectItem>
+                                <SelectItem value="stream">Stream VOD</SelectItem>
+                                <SelectItem value="guide">Guide</SelectItem>
+                                <SelectItem value="short">Short</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                     <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="secondary">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <SubmitButton>Save Changes</SubmitButton>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -127,7 +204,7 @@ function MediaList({ media }: { media: MediaItem[] }) {
          <Card>
             <CardHeader>
                 <CardTitle>Manage Your Media</CardTitle>
-                <CardDescription>Review or remove your media posts.</CardDescription>
+                <CardDescription>Review, edit, or remove your media posts.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
@@ -145,7 +222,8 @@ function MediaList({ media }: { media: MediaItem[] }) {
                                 <TableCell className="font-medium">{item.title}</TableCell>
                                 <TableCell className="capitalize">{item.type}</TableCell>
                                 <TableCell>{item.date}</TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="text-right flex items-center justify-end">
+                                    <EditMediaDialog item={item} />
                                     <RemoveMediaForm mediaId={item.id} />
                                 </TableCell>
                             </TableRow>
