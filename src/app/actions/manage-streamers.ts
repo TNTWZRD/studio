@@ -1,3 +1,4 @@
+
 'use server';
 
 import { promises as fs } from 'fs';
@@ -174,35 +175,53 @@ export async function updateRecurringSchedule(prevState: FormState, formData: Fo
 }
 
 
-const OneTimeEventSchema = z.object({
-    streamerIds: z.preprocess((arg) => {
-        if (typeof arg === 'string') return [arg];
-        if (Array.isArray(arg)) return arg;
-        return [];
-    }, z.array(z.string().min(1))),
-    title: z.string().min(1),
-    date: z.string().datetime(),
-    time: z.string().min(1),
-    action: z.enum(['add', 'remove', 'edit']),
-    eventId: z.string().optional(),
-});
+const streamerIdsPreprocess = z.preprocess((arg) => {
+    if (typeof arg === 'string') return [arg];
+    if (Array.isArray(arg)) return arg;
+    return [];
+}, z.array(z.string().min(1)).min(1, 'At least one platform must be selected.'));
+
+
+const OneTimeEventSchema = z.discriminatedUnion('action', [
+    z.object({
+        action: z.literal('add'),
+        streamerIds: streamerIdsPreprocess,
+        title: z.string().min(1, 'Title is required.'),
+        date: z.string().datetime('A valid date is required.'),
+        time: z.string().min(1, 'Time is required.'),
+    }),
+    z.object({
+        action: z.literal('edit'),
+        streamerIds: streamerIdsPreprocess,
+        eventId: z.string().min(1),
+        title: z.string().min(1, 'Title is required.'),
+        date: z.string().datetime('A valid date is required.'),
+        time: z.string().min(1, 'Time is required.'),
+    }),
+    z.object({
+        action: z.literal('remove'),
+        streamerIds: streamerIdsPreprocess,
+        eventId: z.string().min(1),
+    })
+]);
+
 
 export async function updateOneTimeEvents(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = OneTimeEventSchema.safeParse(Object.fromEntries(formData.entries()));
-
+    
     if (!validatedFields.success) {
         const errors = validatedFields.error.flatten().fieldErrors;
         const message = Object.values(errors).flat()[0] || 'Invalid data provided.';
         return { success: false, message };
     }
-
-    const { streamerIds, title, date, time, action, eventId } = validatedFields.data;
+    
+    const data = validatedFields.data;
 
     try {
         const streamers = await readStreamersFile();
-        let eventTitleForMessage = title;
+        let eventTitleForMessage = 'The event';
         
-        for (const streamerId of streamerIds) {
+        for (const streamerId of data.streamerIds) {
             const streamerIndex = streamers.findIndex(s => s.id === streamerId);
             if (streamerIndex === -1) {
                 console.warn(`Streamer with ID ${streamerId} not found. Skipping.`);
@@ -213,15 +232,20 @@ export async function updateOneTimeEvents(prevState: FormState, formData: FormDa
                 streamers[streamerIndex].oneTimeEvents = [];
             }
             
-            if (action === 'add') {
-                const newEvent = { id: `event-${Date.now()}`, title, date, time };
+            if (data.action === 'add') {
+                const { title, date, time } = data;
+                eventTitleForMessage = title;
+                const newEvent = { id: `event-${Date.now()}-${Math.random()}`, title, date, time };
                 streamers[streamerIndex].oneTimeEvents!.push(newEvent);
-            } else if (action === 'remove' && eventId) {
+            } else if (data.action === 'remove') {
+                const { eventId } = data;
                 const eventToRemove = streamers[streamerIndex].oneTimeEvents!.find(e => e.id === eventId);
                 if(eventToRemove) eventTitleForMessage = eventToRemove.title;
 
                 streamers[streamerIndex].oneTimeEvents = streamers[streamerIndex].oneTimeEvents!.filter(e => e.id !== eventId);
-            } else if (action === 'edit' && eventId) {
+            } else if (data.action === 'edit') {
+                 const { eventId, title, date, time } = data;
+                 eventTitleForMessage = title;
                 const eventIndex = streamers[streamerIndex].oneTimeEvents!.findIndex(e => e.id === eventId);
                 if (eventIndex !== -1) {
                      streamers[streamerIndex].oneTimeEvents![eventIndex] = {
@@ -239,9 +263,9 @@ export async function updateOneTimeEvents(prevState: FormState, formData: FormDa
         revalidatePath('/creator');
         revalidatePath('/schedules');
 
-        if (action === 'add') {
+        if (data.action === 'add') {
             return { success: true, message: `One-time event "${eventTitleForMessage}" added successfully.` };
-        } else if (action === 'remove') {
+        } else if (data.action === 'remove') {
             return { success: true, message: `One-time event "${eventTitleForMessage}" removed successfully.` };
         } else {
              return { success: true, message: `One-time event "${eventTitleForMessage}" updated successfully.` };
@@ -301,3 +325,5 @@ export async function getFirebaseAuthUsers() {
         return [];
     }
 }
+
+    
