@@ -1,3 +1,4 @@
+
 'use client';
 
 import { withAdminAuth } from '@/components/auth/with-admin-auth';
@@ -489,7 +490,7 @@ function AssignStreamerForm({ streamer, authUsers }: { streamer: Streamer; authU
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="streamerId" value={streamer.id} />
-      <Select name="userId" defaultValue={streamer.discordUserId}>
+      <Select name="userId" defaultValue={streamer.discordUserId || ''}>
         <SelectTrigger>
           <SelectValue placeholder="Assign to user..." />
         </SelectTrigger>
@@ -581,3 +582,5 @@ function AdminPage({ allStreamers, allEvents, authUsers }: { allStreamers: Strea
 }
 
 export default withAdminAuth(AdminPage);
+
+    

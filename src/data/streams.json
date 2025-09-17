@@ -30,7 +30,15 @@
         "time": "8:00 PM EST"
       }
     ],
-    "discordUserId": "discord:709453324054954133"
+    "discordUserId": "discord:709453324054954133",
+    "oneTimeEvents": [
+      {
+        "id": "event-1758076898346-0.9291614277615916",
+        "title": "Phasmophobia",
+        "date": "2025-09-18T04:00:00.000Z",
+        "time": "5pm"
+      }
+    ]
   },
   {
     "id": "streamer-8",
@@ -65,13 +73,6 @@
     "game": "Variety",
     "featured": false,
     "discordUserId": "discord:709453324054954133",
-    "oneTimeEvents": [
-      {
-        "id": "event-1758075510237",
-        "title": "Phasmophobia ",
-        "date": "2025-09-18T04:00:00.000Z",
-        "time": "5pm"
-      }
-    ]
+    "oneTimeEvents": []
   }
 ]
