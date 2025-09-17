@@ -8,6 +8,7 @@ export interface Streamer {
   title: string;
   game?: string;
   featured?: boolean;
+  schedule?: { day: string; time: string }[];
 }
 
 export interface ScoreboardEntry {

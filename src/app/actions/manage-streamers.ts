@@ -4,6 +4,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { Streamer } from '@/lib/types';
 
 const streamersPath = path.join(process.cwd(), 'src', 'data', 'streams.json');
 
@@ -18,7 +19,7 @@ type FormState = {
     message: string;
 };
 
-async function readStreamersFile() {
+async function readStreamersFile(): Promise<Streamer[]> {
     try {
         const fileContent = await fs.readFile(streamersPath, 'utf-8');
         return JSON.parse(fileContent);
@@ -28,7 +29,7 @@ async function readStreamersFile() {
     }
 }
 
-async function writeStreamersFile(data: any) {
+async function writeStreamersFile(data: Streamer[]) {
     try {
         await fs.writeFile(streamersPath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (error) {
@@ -53,7 +54,7 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
         const streamers = await readStreamersFile();
         const nextId = 'streamer-' + (streamers.length > 0 ? Math.max(...streamers.map((s: any) => parseInt(s.id.split('-')[1] || '0'))) + 1 : 1);
         
-        const newStreamer = {
+        const newStreamer: Streamer = {
             id: nextId,
             name,
             platform,
@@ -70,6 +71,8 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
 
         revalidatePath('/');
         revalidatePath('/admin');
+        revalidatePath('/creator');
+        revalidatePath('/schedules');
         
         return { success: true, message: `${name} has been added successfully.` };
 
@@ -108,10 +111,54 @@ export async function removeStreamer(prevState: FormState, formData: FormData): 
         
         revalidatePath('/');
         revalidatePath('/admin');
+        revalidatePath('/creator');
+        revalidatePath('/schedules');
         
         return { success: true, message: `${streamerToRemove.name} has been removed.` };
 
     } catch (error: any) {
         return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+const UpdateScheduleSchema = z.object({
+    streamerId: z.string().min(1),
+    schedule: z.string(),
+});
+
+export async function updateSchedule(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = UpdateScheduleSchema.safeParse(Object.fromEntries(formData.entries()));
+    if (!validatedFields.success) {
+        return { success: false, message: 'Invalid data.' };
+    }
+
+    const { streamerId, schedule } = validatedFields.data;
+
+    try {
+        let parsedSchedule = [];
+        if (schedule) {
+            try {
+                parsedSchedule = JSON.parse(schedule);
+            } catch (e) {
+                return { success: false, message: 'Invalid schedule format.' };
+            }
+        }
+
+        const streamers = await readStreamersFile();
+        const streamerIndex = streamers.findIndex(s => s.id === streamerId);
+        
+        if (streamerIndex === -1) {
+            return { success: false, message: 'Streamer not found.' };
+        }
+
+        streamers[streamerIndex].schedule = parsedSchedule;
+        await writeStreamersFile(streamers);
+
+        revalidatePath('/creator');
+        revalidatePath('/schedules');
+
+        return { success: true, message: 'Schedule updated successfully.' };
+    } catch (e: any) {
+        return { success: false, message: e.message || 'An error occurred.' };
     }
 }

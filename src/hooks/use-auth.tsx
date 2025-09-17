@@ -3,13 +3,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { LogIn } from 'lucide-react';
-import { isAdmin } from '@/lib/auth';
+import { isAdmin, canPost } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
+  canPost: boolean;
   signIn: () => void;
   signOut: () => void;
 }
@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
+  const [canUserPost, setCanUserPost] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -33,9 +34,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         setUser(user);
         setIsUserAdmin(isAdmin(user));
+        setCanUserPost(canPost(user));
+
       } else {
         setUser(null);
         setIsUserAdmin(false);
+        setCanUserPost(false);
       }
       setLoading(false);
     });
@@ -62,7 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin: isUserAdmin, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin: isUserAdmin, canPost: canUserPost, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { getConfig } from '@/lib/data';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
-import { Menu, MessageCircle, LogIn, LogOut, Shield } from 'lucide-react';
+import { Menu, MessageCircle, LogIn, LogOut, Shield, PenSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../ui/dropdown-menu';
@@ -18,11 +18,12 @@ import { Config } from '@/lib/types';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/events', label: 'Events' },
+  { href: '/schedules', label: 'Schedules' },
   { href: '/media', label: 'Media' },
 ];
 
 function AuthButton() {
-    const { user, loading, isAdmin, signIn, signOut } = useAuth();
+    const { user, loading, isAdmin, canPost, signIn, signOut } = useAuth();
 
     if (loading) {
         return <Skeleton className="h-10 w-24" />;
@@ -62,6 +63,14 @@ function AuthButton() {
                     <Link href="/admin">
                       <Shield className="mr-2 h-4 w-4" />
                       <span>Admin</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                 {canPost && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/creator">
+                      <PenSquare className="mr-2 h-4 w-4" />
+                      <span>Creator Dashboard</span>
                     </Link>
                   </DropdownMenuItem>
                 )}
