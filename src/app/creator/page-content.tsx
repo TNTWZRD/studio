@@ -249,6 +249,7 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
     
     // For the "Add one-time event" form
     const [newEventDate, setNewEventDate] = useState<Date>();
+    const [newEventTime, setNewEventTime] = useState('');
     const [newEventTitle, setNewEventTitle] = useState('');
 
     const [state, formAction] = useActionState(updateSchedule, {
@@ -281,16 +282,17 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
     };
 
     const handleAddOneTimeEvent = () => {
-        if (!newEventDate || !newEventTitle) {
+        if (!newEventDate || !newEventTime || !newEventTitle) {
             toast({
                 title: 'Error',
-                description: 'Please select a date and enter a title for the one-time event.',
+                description: 'Please provide a title, date, and time for the one-time event.',
                 variant: 'destructive',
             });
             return;
         }
-        setOneTimeEvents([...oneTimeEvents, { id: `event-${Date.now()}`, date: newEventDate.toISOString(), title: newEventTitle }]);
+        setOneTimeEvents([...oneTimeEvents, { id: `event-${Date.now()}`, date: newEventDate.toISOString(), time: newEventTime, title: newEventTitle }]);
         setNewEventDate(undefined);
+        setNewEventTime('');
         setNewEventTitle('');
     };
 
@@ -348,14 +350,14 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
                     
                     <div>
                         <h3 className="text-lg font-semibold mb-3">One-Time Events</h3>
-                        <div className="space-y-2 mb-4 p-4 border rounded-lg">
+                        <div className="space-y-3 mb-4 p-4 border rounded-lg">
                              <h4 className="font-medium">Add New Event</h4>
-                             <div className="flex flex-col md:flex-row items-center gap-2">
-                                <Popover>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant={"outline"}
-                                            className={cn("w-full md:w-[280px] justify-start text-left font-normal", !newEventDate && "text-muted-foreground")}
+                                            className={cn("w-full justify-start text-left font-normal", !newEventDate && "text-muted-foreground")}
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                             {newEventDate ? format(newEventDate, "PPP") : <span>Pick a date</span>}
@@ -367,14 +369,20 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
                                 </Popover>
                                 <Input
                                     type="text"
-                                    value={newEventTitle}
-                                    placeholder="Event title (e.g., Charity Stream)"
-                                    onChange={(e) => setNewEventTitle(e.target.value)}
+                                    value={newEventTime}
+                                    placeholder="e.g., 8:00 PM EST"
+                                    onChange={(e) => setNewEventTime(e.target.value)}
                                 />
-                                <Button type="button" onClick={handleAddOneTimeEvent}>
-                                    <PlusCircle className="mr-2"/> Add
-                                </Button>
                             </div>
+                             <Input
+                                type="text"
+                                value={newEventTitle}
+                                placeholder="Event info (e.g., Charity Stream)"
+                                onChange={(e) => setNewEventTitle(e.target.value)}
+                            />
+                            <Button type="button" onClick={handleAddOneTimeEvent} className="w-full md:w-auto">
+                                <PlusCircle className="mr-2"/> Add Event
+                            </Button>
                         </div>
 
                         <div className="space-y-2">
@@ -382,7 +390,7 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
                                 <div key={event.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary">
                                     <div>
                                         <p className="font-medium">{event.title}</p>
-                                        <p className="text-sm text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d, yyyy')}</p>
+                                        <p className="text-sm text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d, yyyy')} at {event.time}</p>
                                     </div>
                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveOneTimeEvent(event.id)} type="button">
                                         <Trash2 className="text-destructive h-4 w-4"/>

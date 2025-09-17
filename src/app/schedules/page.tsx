@@ -72,7 +72,7 @@ function StreamerScheduleCard({ streamer }: { streamer: Streamer }) {
                         <li key={event.id} className="flex justify-between p-2 rounded-md bg-accent/10">
                             <div>
                                 <p className="font-medium text-accent">{event.title}</p>
-                                <p className="text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d')}</p>
+                                <p className="text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d')} at {event.time}</p>
                             </div>
                         </li>
                     ))}
