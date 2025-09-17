@@ -6,6 +6,29 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Badge } from '../ui/badge';
 
+function getYouTubeVideoId(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
+      if (urlObj.pathname === '/watch') {
+        return urlObj.searchParams.get('v');
+      }
+      if (urlObj.pathname.startsWith('/embed/')) {
+        return urlObj.pathname.split('/')[2];
+      }
+      if (urlObj.pathname.startsWith('/shorts/')) {
+        return urlObj.pathname.split('/')[2];
+      }
+    } else if (urlObj.hostname === 'youtu.be') {
+      return urlObj.pathname.substring(1);
+    }
+  } catch (error) {
+    console.error('Invalid URL:', url, error);
+    return null;
+  }
+  return null;
+}
+
 export default function MediaSummary({ media }: { media: MediaItem[] }) {
     if (!media || media.length === 0) {
         return null;
@@ -28,26 +51,33 @@ export default function MediaSummary({ media }: { media: MediaItem[] }) {
                     </Button>
                 </div>
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {media.map(item => (
-                        <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" className="block group">
-                            <Card className="overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl">
-                                <div className="relative aspect-video">
-                                    <Image 
-                                        src={item.thumbnail}
-                                        alt={item.title}
-                                        fill
-                                        className="object-cover"
-                                        data-ai-hint="gaming video"
-                                    />
-                                    <Badge variant="secondary" className="absolute top-2 left-2 capitalize">{item.type}</Badge>
-                                </div>
-                                <CardContent className="p-4">
-                                    <h3 className="font-semibold truncate group-hover:text-accent group-hover:underline" title={item.title}>{item.title}</h3>
-                                    <p className="text-sm text-muted-foreground">by {item.creator}</p>
-                                </CardContent>
-                            </Card>
-                        </a>
-                    ))}
+                    {media.map(item => {
+                        const youTubeId = getYouTubeVideoId(item.url);
+                        const thumbnailUrl = youTubeId
+                          ? `https://i.ytimg.com/vi/${youTubeId}/hqdefault.jpg`
+                          : item.thumbnail;
+                        
+                        return (
+                            <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" className="block group">
+                                <Card className="overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl">
+                                    <div className="relative aspect-video">
+                                        <Image 
+                                            src={thumbnailUrl}
+                                            alt={item.title}
+                                            fill
+                                            className="object-cover"
+                                            data-ai-hint="gaming video"
+                                        />
+                                        <Badge variant="secondary" className="absolute top-2 left-2 capitalize">{item.type}</Badge>
+                                    </div>
+                                    <CardContent className="p-4">
+                                        <h3 className="font-semibold truncate group-hover:text-accent group-hover:underline" title={item.title}>{item.title}</h3>
+                                        <p className="text-sm text-muted-foreground">by {item.creator}</p>
+                                    </CardContent>
+                                </Card>
+                            </a>
+                        );
+                    })}
                 </div>
             </div>
         </section>
