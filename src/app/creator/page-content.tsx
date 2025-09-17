@@ -12,16 +12,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { MediaItem, Streamer } from '@/lib/types';
-import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon, User } from 'lucide-react';
+import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon, User, ChevronRight } from 'lucide-react';
 import { addMedia, removeMedia, updateMedia } from '../actions/manage-media';
 import { useAuth } from '@/hooks/use-auth';
-import { updateSchedule } from '../actions/manage-streamers';
+import { updateSchedule, addStreamer, assignStreamerToUser } from '../actions/manage-streamers';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+
 
 function SubmitButton({ children, variant }: { children: React.ReactNode, variant?: any }) {
   const { pending } = useFormStatus();
@@ -400,7 +408,6 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
                         </div>
                     </div>
 
-
                     <Separator />
 
                     <div className="flex justify-end">
@@ -412,11 +419,169 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
     )
 }
 
+function ClaimProfileForm({ unassignedStreamers, userId }: { unassignedStreamers: Streamer[], userId: string }) {
+    const { toast } = useToast();
+    const [state, formAction] = useActionState(assignStreamerToUser, { success: false, message: '' });
+
+    useEffect(() => {
+        if (state.message) {
+            toast({
+                title: state.success ? 'Success' : 'Error',
+                description: state.message,
+                variant: state.success ? 'default' : 'destructive',
+            });
+        }
+    }, [state, toast]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Claim a Streamer Profile</CardTitle>
+                <CardDescription>If you see your streamer name in the list below, you can claim it to manage its schedule.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form action={formAction} className="space-y-4">
+                    <input type="hidden" name="userId" value={userId} />
+                     <div className="space-y-2">
+                        <Label htmlFor="streamerId">Unassigned Profiles</Label>
+                        <Select name="streamerId" required>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a profile to claim..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {unassignedStreamers.map(streamer => (
+                                     <SelectItem key={streamer.id} value={streamer.id}>
+                                        <div className="flex items-center gap-2">
+                                            <Avatar className="w-5 h-5">
+                                                <AvatarImage src={streamer.avatar} alt={streamer.name} />
+                                                <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <span>{streamer.name} ({streamer.platform})</span>
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <SubmitButton>Claim Profile</SubmitButton>
+                </form>
+            </CardContent>
+        </Card>
+    );
+}
+
+function AddStreamerCreatorForm({ userId }: { userId: string }) {
+    const { toast } = useToast();
+    const formRef = useRef<HTMLFormElement>(null);
+    const [state, formAction] = useActionState(addStreamer, {
+      success: false,
+      message: '',
+    });
+
+    useEffect(() => {
+        if (state.message) {
+            toast({
+                title: state.success ? 'Success!' : 'Error',
+                description: state.message,
+                variant: state.success ? 'default' : 'destructive',
+            });
+            if (state.success) {
+                formRef.current?.reset();
+            }
+        }
+    }, [state, toast]);
+
+    return (
+         <Card>
+            <CardHeader>
+                <CardTitle>Add Your Streamer Profile</CardTitle>
+                <CardDescription>Don't see your profile in the list? Add it here to get started.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form ref={formRef} action={formAction} className="space-y-4">
+                     <input type="hidden" name="discordUserId" value={userId} />
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Streamer Name</Label>
+                        <Input id="name" name="name" placeholder="Your display name on stream" required />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="platform">Platform</Label>
+                            <Select name="platform" defaultValue="twitch" required>
+                                <SelectTrigger id="platform">
+                                    <SelectValue placeholder="Select platform" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="twitch">Twitch</SelectItem>
+                                    <SelectItem value="youtube">YouTube</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="platformUrl">Channel URL</Label>
+                            <Input id="platformUrl" name="platformUrl" type="url" placeholder="https://twitch.tv/yourchannel" required />
+                        </div>
+                    </div>
+                    <SubmitButton>Add My Profile</SubmitButton>
+                </form>
+            </CardContent>
+        </Card>
+    );
+}
+
+function CreatorOnboarding({ unassignedStreamers, userId }: { unassignedStreamers: Streamer[], userId: string }) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Welcome, Creator!</CardTitle>
+                <CardDescription>
+                    It looks like you don't have any streamer profiles assigned to your account yet.
+                    You can either claim an existing unassigned profile or add a new one to get started.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Accordion type="single" collapsible className="w-full">
+                    {unassignedStreamers.length > 0 && (
+                        <AccordionItem value="claim">
+                            <AccordionTrigger className="text-lg font-semibold">
+                                <div className="flex items-center gap-2">
+                                   <ChevronRight className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                                   Option 1: Claim an Existing Profile
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-4">
+                                <ClaimProfileForm unassignedStreamers={unassignedStreamers} userId={userId} />
+                            </AccordionContent>
+                        </AccordionItem>
+                    )}
+                    <AccordionItem value="add">
+                        <AccordionTrigger className="text-lg font-semibold">
+                             <div className="flex items-center gap-2">
+                                <ChevronRight className="h-5 w-5 transition-transform duration-200 group-data-[state=open]:rotate-90" />
+                                Option {unassignedStreamers.length > 0 ? '2' : '1'}: Add a New Profile
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-4">
+                            <AddStreamerCreatorForm userId={userId} />
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </CardContent>
+        </Card>
+    );
+}
+
+
 function CreatorPageComponent({ allStreamers, allMedia }: { allStreamers: Streamer[], allMedia: MediaItem[] }) {
     const { user } = useAuth();
     
-    const userStreamerProfiles = user ? allStreamers.filter(s => s.discordUserId === user.uid) : [];
-    const userMedia = user ? allMedia.filter(m => m.creator.toLowerCase() === user.displayName?.toLowerCase()) : [];
+    if (!user) {
+        return null; // Should be handled by withCreatorAuth, but as a fallback.
+    }
+
+    const userStreamerProfiles = allStreamers.filter(s => s.discordUserId === user.uid);
+    const unassignedStreamers = allStreamers.filter(s => !s.discordUserId);
+    const userMedia = allMedia.filter(m => m.creator.toLowerCase() === user.displayName?.toLowerCase());
 
   return (
     <div className="container mx-auto py-12">
@@ -429,29 +594,23 @@ function CreatorPageComponent({ allStreamers, allMedia }: { allStreamers: Stream
         </div>
 
 
-        <Tabs defaultValue="media" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="media">Manage Media</TabsTrigger>
-            <TabsTrigger value="schedule">Manage Schedules</TabsTrigger>
-          </TabsList>
-          <TabsContent value="media" className="space-y-6 mt-6">
-            <AddMediaForm />
-            <MediaList media={userMedia} />
-          </TabsContent>
-          <TabsContent value="schedule" className="space-y-6 mt-6">
-            {userStreamerProfiles.length > 0 ? (
-                userStreamerProfiles.map(profile => <ScheduleManager key={profile.id} streamer={profile} />)
-            ) : (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>No Streamer Profiles Assigned</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-muted-foreground">We couldn't find any streamer profiles assigned to your Discord account. Please contact an admin to have your streamer profile(s) linked to your account.</p>
-                    </CardContent>
-                </Card>
-            )}
-          </TabsContent>
+        <Tabs defaultValue={userStreamerProfiles.length > 0 ? "media" : "onboarding"} className="w-full">
+            <TabsList className={cn("grid w-full", userStreamerProfiles.length > 0 ? "grid-cols-2" : "hidden")}>
+                <TabsTrigger value="media">Manage Media</TabsTrigger>
+                <TabsTrigger value="schedule">Manage Schedules</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="onboarding" className={cn(userStreamerProfiles.length > 0 ? 'hidden' : 'block', 'mt-6 space-y-6')}>
+                 <CreatorOnboarding unassignedStreamers={unassignedStreamers} userId={user.uid} />
+            </TabsContent>
+
+            <TabsContent value="media" className="space-y-6 mt-6">
+                <AddMediaForm />
+                <MediaList media={userMedia} />
+            </TabsContent>
+            <TabsContent value="schedule" className="space-y-6 mt-6">
+                {userStreamerProfiles.map(profile => <ScheduleManager key={profile.id} streamer={profile} />)}
+            </TabsContent>
         </Tabs>
 
       </div>

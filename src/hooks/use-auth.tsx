@@ -3,13 +3,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { isAdmin, canPost } from '@/lib/auth';
+import { isAdmin, canPost, isGuildMember } from '@/lib/auth';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
   canPost: boolean;
+  isMember: boolean;
   signIn: () => void;
   signOut: () => void;
 }
@@ -21,6 +22,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [canUserPost, setCanUserPost] = useState(false);
+  const [isUserMember, setIsUserMember] = useState(false);
+
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -30,16 +33,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Attach claims to user object for easier access
         (user as any).claims = tokenResult.claims;
         
-        console.log("Current user's roles:", tokenResult.claims.roles);
-
-        setUser(user);
-        setIsUserAdmin(isAdmin(user));
-        setCanUserPost(canPost(user));
+        const userIsAdmin = isAdmin(user);
+        const userIsMember = isGuildMember(user);
+        
+        // If they are not a member (and not an admin), sign them out.
+        if (!userIsMember) {
+          await firebaseSignOut(auth);
+          setUser(null);
+          setIsUserAdmin(false);
+          setCanUserPost(false);
+          setIsUserMember(false);
+        } else {
+            setUser(user);
+            setIsUserAdmin(userIsAdmin);
+            setCanUserPost(canPost(user));
+            setIsUserMember(userIsMember);
+        }
 
       } else {
         setUser(null);
         setIsUserAdmin(false);
         setCanUserPost(false);
+        setIsUserMember(false);
       }
       setLoading(false);
     });
@@ -66,7 +81,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin: isUserAdmin, canPost: canUserPost, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin: isUserAdmin, canPost: canUserPost, isMember: isUserMember, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

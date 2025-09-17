@@ -1,6 +1,6 @@
 import { adminAuth } from '@/lib/firebase-admin';
 import { NextRequest, NextResponse } from 'next/server';
-import { ADMIN_ROLE_IDS } from '@/lib/auth';
+import { ADMIN_ROLE_IDS, GUILD_MEMBER_ROLE_ID } from '@/lib/auth';
 
 async function getGuildMember(accessToken: string, guildId: string) {
     if (!guildId) return null;
@@ -13,7 +13,7 @@ async function getGuildMember(accessToken: string, guildId: string) {
 
     if (!response.ok) {
         if (response.status === 404) {
-            return null;
+            return null; // User is not in the guild
         }
         console.error('Failed to get guild member info:', await response.text());
         return null;
@@ -34,14 +34,6 @@ export async function GET(req: NextRequest) {
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
     const redirectUri = process.env.NEXT_PUBLIC_DISCORD_REDIRECT_URI;
     const guildId = process.env.DISCORD_GUILD_ID;
-
-    // Diagnostic logging
-    console.log("--- Discord Auth Callback ---");
-    console.log("Client ID:", clientId ? "Loaded" : "MISSING");
-    console.log("Client Secret:", clientSecret ? "Loaded" : "MISSING");
-    console.log("Redirect URI:", redirectUri ? "Loaded" : "MISSING");
-    console.log("Guild ID:", guildId ? "Loaded" : "MISSING");
-    console.log("--- End Diagnostic ---");
 
     if (!clientId || !clientSecret || !redirectUri) {
         console.error('Missing Discord environment variables');
@@ -64,10 +56,24 @@ export async function GET(req: NextRequest) {
         });
 
         const tokenData = await tokenResponse.json();
-
         if (tokenData.error) {
             console.error('Discord token exchange error:', tokenData);
             return NextResponse.json({ error: tokenData.error_description || 'Failed to exchange code for token.' }, { status: 400 });
+        }
+
+        // Check guild membership before proceeding
+        const memberData = await getGuildMember(tokenData.access_token, guildId!);
+        const userRoles = memberData?.roles || [];
+
+        const isMember = userRoles.includes(GUILD_MEMBER_ROLE_ID);
+        const isAdmin = userRoles.some((roleId: string) => ADMIN_ROLE_IDS.includes(roleId));
+
+        // If the user is not an admin and not a guild member, deny access.
+        if (!isAdmin && !isMember) {
+            const forbiddenUrl = req.nextUrl.clone();
+            forbiddenUrl.pathname = '/forbidden'; // A page to show access denied message
+            forbiddenUrl.search = '';
+            return NextResponse.redirect(forbiddenUrl);
         }
 
         const userResponse = await fetch('https://discord.com/api/users/@me', {
@@ -81,8 +87,6 @@ export async function GET(req: NextRequest) {
         const { id, username, avatar, email } = userData;
         const uid = `discord:${id}`;
 
-        const memberData = await getGuildMember(tokenData.access_token, guildId!);
-        const userRoles = memberData?.roles || [];
         const customClaims = {
             isGuildMember: !!memberData,
             roles: userRoles,
@@ -112,13 +116,7 @@ export async function GET(req: NextRequest) {
 
         const url = req.nextUrl.clone();
         url.pathname = '/';
-        url.search = `?token=${customToken}`;
-
-        // If the user has an admin role, add a flag to force a client-side token refresh.
-        const isAdmin = userRoles.some((roleId: string) => ADMIN_ROLE_IDS.includes(roleId));
-        if (isAdmin) {
-            url.search += '&roleCheck=true';
-        }
+        url.search = `?token=${customToken}&roleCheck=true`;
         
         return NextResponse.redirect(url);
 

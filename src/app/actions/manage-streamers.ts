@@ -13,6 +13,7 @@ const AddStreamerSchema = z.object({
     name: z.string().min(1, { message: 'Name is required.' }),
     platform: z.enum(['twitch', 'youtube']),
     platformUrl: z.string().url({ message: 'A valid URL is required.' }),
+    discordUserId: z.string().optional(), // Added for creator self-service
 });
 
 type FormState = {
@@ -49,10 +50,16 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
         };
     }
     
-    const { name, platform, platformUrl } = validatedFields.data;
+    const { name, platform, platformUrl, discordUserId } = validatedFields.data;
 
     try {
         const streamers = await readStreamersFile();
+        
+        // Prevent duplicate channel URLs
+        if (streamers.some(s => s.platformUrl.toLowerCase() === platformUrl.toLowerCase())) {
+            return { success: false, message: 'This channel URL has already been added.' };
+        }
+
         const nextId = 'streamer-' + (streamers.length > 0 ? Math.max(...streamers.map((s: any) => parseInt(s.id.split('-')[1] || '0'))) + 1 : 1);
         
         const newStreamer: Streamer = {
@@ -60,11 +67,12 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
             name,
             platform,
             platformUrl,
-            avatar: String(streamers.length + 1), // Placeholder avatar ID
+            avatar: String(Math.floor(Math.random() * 5) + 1), // Assign a random placeholder avatar ID
             isLive: false,
             title: `Welcome to my stream!`,
             game: `Variety`,
             featured: false,
+            discordUserId: discordUserId,
         };
 
         streamers.push(newStreamer);
