@@ -21,6 +21,9 @@ function getYouTubeVideoId(url: string): string | null {
       if (urlObj.pathname.startsWith('/embed/')) {
         return urlObj.pathname.split('/')[2];
       }
+      if (urlObj.pathname.startsWith('/shorts/')) {
+        return urlObj.pathname.split('/')[2];
+      }
     } else if (urlObj.hostname === 'youtu.be') {
       return urlObj.pathname.substring(1);
     }
@@ -34,7 +37,7 @@ function getYouTubeVideoId(url: string): string | null {
 
 function MediaCard({ item }: { item: MediaItem }) {
   const [open, setOpen] = useState(false);
-  const youTubeId = item.type === 'video' ? getYouTubeVideoId(item.url) : null;
+  const youTubeId = item.type === 'video' || item.type === 'clip' ? getYouTubeVideoId(item.url) : null;
 
   if (youTubeId) {
     return (
@@ -64,7 +67,7 @@ function MediaCard({ item }: { item: MediaItem }) {
             </div>
              <Button onClick={() => setOpen(true)} className="mt-4 w-full">
                 <PlayCircle className="mr-2"/>
-                Watch Video
+                Watch
              </Button>
           </CardContent>
         </Card>
