@@ -19,7 +19,17 @@
     "isLive": false,
     "title": "Welcome to my stream!",
     "game": "Variety",
-    "featured": false
+    "featured": false,
+    "schedule": [
+      {
+        "day": "Wednesday",
+        "time": "8:00 PM EST"
+      },
+      {
+        "day": "Thursday",
+        "time": "8:00 PM EST"
+      }
+    ]
   },
   {
     "id": "streamer-8",
