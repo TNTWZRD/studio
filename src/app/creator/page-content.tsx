@@ -329,6 +329,84 @@ function RecurringScheduleManager({ streamer }: { streamer: Streamer }) {
     );
 }
 
+function EditOneTimeEventDialog({
+  event,
+  formAction,
+}: {
+  event: NonNullable<Streamer['oneTimeEvents']>[0] & { streamerProfile: Streamer };
+  formAction: (payload: FormData) => void;
+}) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [eventDate, setEventDate] = useState<Date | undefined>(new Date(event.date));
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Edit className="h-4 w-4" />
+          <span className="sr-only">Edit Event</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit One-Time Event</DialogTitle>
+        </DialogHeader>
+        <form
+          action={formAction}
+          onSubmit={() => {
+            // Close on submit, success will be handled by toast
+            setTimeout(() => setOpen(false), 300);
+          }}
+          className="space-y-4"
+        >
+          <input type="hidden" name="action" value="edit" />
+          <input type="hidden" name="eventId" value={event.id} />
+          <input type="hidden" name="streamerIds" value={event.streamerProfile.id} />
+
+          <div className="space-y-2">
+            <Label htmlFor="title">Event Info / Title</Label>
+            <Input id="title" name="title" defaultValue={event.title} required />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={'outline'}
+                    className={cn('w-full justify-start text-left font-normal', !eventDate && 'text-muted-foreground')}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {eventDate ? format(eventDate, 'PPP') : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar mode="single" selected={eventDate} onSelect={setEventDate} initialFocus />
+                </PopoverContent>
+              </Popover>
+              <input type="hidden" name="date" value={eventDate?.toISOString()} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="time">Time</Label>
+              <Input id="time" name="time" defaultValue={event.time} required />
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                Cancel
+              </Button>
+            </DialogClose>
+            <SubmitButton>Save Changes</SubmitButton>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function OneTimeEventManager({ userStreamerProfiles }: { userStreamerProfiles: Streamer[] }) {
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
@@ -346,9 +424,13 @@ function OneTimeEventManager({ userStreamerProfiles }: { userStreamerProfiles: S
                 variant: state.success ? 'default' : 'destructive',
             });
             if (state.success) {
-                formRef.current?.reset();
-                setNewEventDate(undefined);
-                setSelectedProfiles({});
+                // Do not reset form on edit/delete, only on add
+                const form = formRef.current;
+                if(form && (form.elements.namedItem('action') as HTMLInputElement)?.value === 'add') {
+                    form.reset();
+                    setNewEventDate(undefined);
+                    setSelectedProfiles({});
+                }
             }
         }
     }, [state, toast]);
@@ -445,14 +527,17 @@ function OneTimeEventManager({ userStreamerProfiles }: { userStreamerProfiles: S
                                         <span className="text-xs capitalize ml-2 p-1 bg-background rounded-sm">({event.streamerProfile.platform})</span>
                                     </p>
                                 </div>
-                                <form action={formAction}>
-                                    <input type="hidden" name="action" value="remove"/>
-                                    <input type="hidden" name="streamerIds" value={event.streamerProfile.id}/>
-                                    <input type="hidden" name="eventId" value={event.id}/>
-                                    <Button variant="ghost" size="icon" type="submit">
-                                        <Trash2 className="text-destructive h-4 w-4"/>
-                                    </Button>
-                                </form>
+                                <div className="flex items-center">
+                                    <EditOneTimeEventDialog event={event} formAction={formAction} />
+                                    <form action={formAction}>
+                                        <input type="hidden" name="action" value="remove"/>
+                                        <input type="hidden" name="streamerIds" value={event.streamerProfile.id}/>
+                                        <input type="hidden" name="eventId" value={event.id}/>
+                                        <Button variant="ghost" size="icon" type="submit">
+                                            <Trash2 className="text-destructive h-4 w-4"/>
+                                        </Button>
+                                    </form>
+                                </div>
                             </div>
                         )) : (
                             <p className="text-sm text-muted-foreground text-center py-4">No one-time events scheduled.</p>

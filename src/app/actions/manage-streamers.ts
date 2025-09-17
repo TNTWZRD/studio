@@ -183,7 +183,7 @@ const OneTimeEventSchema = z.object({
     title: z.string().min(1),
     date: z.string().datetime(),
     time: z.string().min(1),
-    action: z.enum(['add', 'remove']),
+    action: z.enum(['add', 'remove', 'edit']),
     eventId: z.string().optional(),
 });
 
@@ -221,6 +221,16 @@ export async function updateOneTimeEvents(prevState: FormState, formData: FormDa
                 if(eventToRemove) eventTitleForMessage = eventToRemove.title;
 
                 streamers[streamerIndex].oneTimeEvents = streamers[streamerIndex].oneTimeEvents!.filter(e => e.id !== eventId);
+            } else if (action === 'edit' && eventId) {
+                const eventIndex = streamers[streamerIndex].oneTimeEvents!.findIndex(e => e.id === eventId);
+                if (eventIndex !== -1) {
+                     streamers[streamerIndex].oneTimeEvents![eventIndex] = {
+                        ...streamers[streamerIndex].oneTimeEvents![eventIndex],
+                        title,
+                        date,
+                        time
+                     };
+                }
             }
         }
         
@@ -231,8 +241,10 @@ export async function updateOneTimeEvents(prevState: FormState, formData: FormDa
 
         if (action === 'add') {
             return { success: true, message: `One-time event "${eventTitleForMessage}" added successfully.` };
-        } else {
+        } else if (action === 'remove') {
             return { success: true, message: `One-time event "${eventTitleForMessage}" removed successfully.` };
+        } else {
+             return { success: true, message: `One-time event "${eventTitleForMessage}" updated successfully.` };
         }
 
     } catch (e: any) {

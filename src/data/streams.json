@@ -64,6 +64,14 @@
     "title": "Welcome to my stream!",
     "game": "Variety",
     "featured": false,
-    "discordUserId": "discord:709453324054954133"
+    "discordUserId": "discord:709453324054954133",
+    "oneTimeEvents": [
+      {
+        "id": "event-1758075510237",
+        "title": "Phasmophobia ",
+        "date": "2025-09-18T04:00:00.000Z",
+        "time": "5pm"
+      }
+    ]
   }
 ]

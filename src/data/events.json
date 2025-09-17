@@ -12,41 +12,5 @@
     ],
     "details": "This week's scrim is on the new map. Standard competitive rules apply. Be in the Discord voice channel 15 minutes before start time.",
     "image": "10"
-  },
-  {
-    "id": "event-2025-08-live",
-    "title": "Community Game Night: Jackbox",
-    "start": "2025-08-15T20:00:00Z",
-    "end": "2025-08-15T22:00:00Z",
-    "status": "live",
-    "participants": [
-      { "id": "p3", "name": "Everyone!" }
-    ],
-    "details": "Join us for a hilarious night of Jackbox games. No skill required, just a phone or tablet to play along. The stream is live now!",
-    "image": "11"
-  },
-  {
-    "id": "event-2025-07-tournament",
-    "title": "Summer Showdown Tournament",
-    "start": "2025-07-12T14:00:00Z",
-    "end": "2025-07-12T20:00:00Z",
-    "status": "past",
-    "participants": [
-      { "id": "t1", "name": "The Champions" },
-      { "id": "t2", "name": "Valiant Vipers" },
-      { "id": "t3", "name": "Shadow Syndicate" },
-      { "id": "t4", "name": "Crimson Crusaders" }
-    ],
-    "scoreboard": [
-      { "rank": 1, "name": "Valiant Vipers", "score": 1500 },
-      { "rank": 2, "name": "The Champions", "score": 1350 },
-      { "rank": 3, "name": "Shadow Syndicate", "score": 1100 },
-      { "rank": 4, "name": "Crimson Crusaders", "score": 950, "notes": "Forfeited final match" }
-    ],
-    "details": "The grand finale of our summer tournament series. See the full scoreboard for results.",
-    "media": [
-      "https://youtube.com/watch?v=..."
-    ],
-    "image": "12"
   }
 ]
