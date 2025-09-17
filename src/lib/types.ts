@@ -9,6 +9,7 @@ export interface Streamer {
   game?: string;
   featured?: boolean;
   schedule?: { day: string; time: string }[];
+  oneTimeEvents?: { id: string; date: string; title: string }[];
 }
 
 export interface ScoreboardEntry {

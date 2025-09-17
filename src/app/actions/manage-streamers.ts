@@ -124,6 +124,7 @@ export async function removeStreamer(prevState: FormState, formData: FormData): 
 const UpdateScheduleSchema = z.object({
     streamerId: z.string().min(1),
     schedule: z.string(),
+    oneTimeEvents: z.string(),
 });
 
 export async function updateSchedule(prevState: FormState, formData: FormData): Promise<FormState> {
@@ -132,7 +133,7 @@ export async function updateSchedule(prevState: FormState, formData: FormData): 
         return { success: false, message: 'Invalid data.' };
     }
 
-    const { streamerId, schedule } = validatedFields.data;
+    const { streamerId, schedule, oneTimeEvents } = validatedFields.data;
 
     try {
         let parsedSchedule = [];
@@ -140,7 +141,16 @@ export async function updateSchedule(prevState: FormState, formData: FormData): 
             try {
                 parsedSchedule = JSON.parse(schedule);
             } catch (e) {
-                return { success: false, message: 'Invalid schedule format.' };
+                return { success: false, message: 'Invalid recurring schedule format.' };
+            }
+        }
+        
+        let parsedOneTimeEvents = [];
+        if (oneTimeEvents) {
+             try {
+                parsedOneTimeEvents = JSON.parse(oneTimeEvents);
+            } catch (e) {
+                return { success: false, message: 'Invalid one-time schedule format.' };
             }
         }
 
@@ -152,6 +162,8 @@ export async function updateSchedule(prevState: FormState, formData: FormData): 
         }
 
         streamers[streamerIndex].schedule = parsedSchedule;
+        streamers[streamerIndex].oneTimeEvents = parsedOneTimeEvents;
+
         await writeStreamersFile(streamers);
 
         revalidatePath('/creator');

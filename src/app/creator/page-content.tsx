@@ -12,12 +12,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { MediaItem, Streamer } from '@/lib/types';
-import { Trash2, PlusCircle, MinusCircle, Edit } from 'lucide-react';
+import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon } from 'lucide-react';
 import { addMedia, removeMedia, updateMedia } from '../actions/manage-media';
 import { useAuth } from '@/hooks/use-auth';
 import { updateSchedule } from '../actions/manage-streamers';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { Separator } from '@/components/ui/separator';
 
 function SubmitButton({ children, variant }: { children: React.ReactNode, variant?: any }) {
   const { pending } = useFormStatus();
@@ -240,7 +244,12 @@ const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Fri
 
 function ScheduleManager({ streamer }: { streamer: Streamer }) {
     const { toast } = useToast();
-    const [schedule, setSchedule] = useState(streamer.schedule || []);
+    const [recurringSchedule, setRecurringSchedule] = useState(streamer.schedule || []);
+    const [oneTimeEvents, setOneTimeEvents] = useState(streamer.oneTimeEvents || []);
+    
+    // For the "Add one-time event" form
+    const [newEventDate, setNewEventDate] = useState<Date>();
+    const [newEventTitle, setNewEventTitle] = useState('');
 
     const [state, formAction] = useActionState(updateSchedule, {
         success: false,
@@ -257,18 +266,36 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
         }
     }, [state, toast]);
 
-    const handleAddSlot = () => {
-        setSchedule([...schedule, { day: 'Sunday', time: '8:00 PM EST' }]);
+    const handleAddRecurringSlot = () => {
+        setRecurringSchedule([...recurringSchedule, { day: 'Sunday', time: '8:00 PM EST' }]);
     };
     
-    const handleRemoveSlot = (index: number) => {
-        setSchedule(schedule.filter((_, i) => i !== index));
+    const handleRemoveRecurringSlot = (index: number) => {
+        setRecurringSchedule(recurringSchedule.filter((_, i) => i !== index));
     };
 
-    const handleScheduleChange = (index: number, field: 'day' | 'time', value: string) => {
-        const newSchedule = [...schedule];
+    const handleRecurringScheduleChange = (index: number, field: 'day' | 'time', value: string) => {
+        const newSchedule = [...recurringSchedule];
         newSchedule[index] = { ...newSchedule[index], [field]: value };
-        setSchedule(newSchedule);
+        setRecurringSchedule(newSchedule);
+    };
+
+    const handleAddOneTimeEvent = () => {
+        if (!newEventDate || !newEventTitle) {
+            toast({
+                title: 'Error',
+                description: 'Please select a date and enter a title for the one-time event.',
+                variant: 'destructive',
+            });
+            return;
+        }
+        setOneTimeEvents([...oneTimeEvents, { id: `event-${Date.now()}`, date: newEventDate.toISOString(), title: newEventTitle }]);
+        setNewEventDate(undefined);
+        setNewEventTitle('');
+    };
+
+    const handleRemoveOneTimeEvent = (id: string) => {
+        setOneTimeEvents(oneTimeEvents.filter(event => event.id !== id));
     };
 
     return (
@@ -278,43 +305,98 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
                 <CardDescription>Let the community know when you'll be live. All times are for display only.</CardDescription>
             </CardHeader>
             <CardContent>
-                 <form action={formAction} className="space-y-4">
+                 <form action={formAction} className="space-y-6">
                     <input type="hidden" name="streamerId" value={streamer.id} />
-                    <input type="hidden" name="schedule" value={JSON.stringify(schedule)} />
+                    <input type="hidden" name="schedule" value={JSON.stringify(recurringSchedule)} />
+                    <input type="hidden" name="oneTimeEvents" value={JSON.stringify(oneTimeEvents)} />
 
-                    <div className="space-y-4">
-                    {schedule.map((slot, index) => (
-                        <div key={index} className="flex flex-col md:flex-row items-center gap-2">
-                             <Select
-                                value={slot.day}
-                                onValueChange={(value) => handleScheduleChange(index, 'day', value)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select day" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Input
-                                type="text"
-                                value={slot.time}
-                                placeholder="e.g., 8:00 PM EST"
-                                onChange={(e) => handleScheduleChange(index, 'time', e.target.value)}
-                            />
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveSlot(index)} type="button">
-                                <MinusCircle className="text-destructive"/>
-                            </Button>
+                    <div>
+                        <h3 className="text-lg font-semibold mb-3">Recurring Weekly Schedule</h3>
+                        <div className="space-y-4">
+                        {recurringSchedule.map((slot, index) => (
+                            <div key={index} className="flex flex-col md:flex-row items-center gap-2">
+                                <Select
+                                    value={slot.day}
+                                    onValueChange={(value) => handleRecurringScheduleChange(index, 'day', value)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select day" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Input
+                                    type="text"
+                                    value={slot.time}
+                                    placeholder="e.g., 8:00 PM EST"
+                                    onChange={(e) => handleRecurringScheduleChange(index, 'time', e.target.value)}
+                                />
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveRecurringSlot(index)} type="button">
+                                    <MinusCircle className="text-destructive"/>
+                                </Button>
+                            </div>
+                        ))}
                         </div>
-                    ))}
+                         <Button variant="outline" type="button" onClick={handleAddRecurringSlot} className="mt-4">
+                            <PlusCircle className="mr-2"/>
+                            Add Recurring Slot
+                        </Button>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <Button variant="outline" type="button" onClick={handleAddSlot}>
-                            <PlusCircle className="mr-2"/>
-                            Add Time Slot
-                        </Button>
-                        <SubmitButton variant="default">Save Schedule</SubmitButton>
+                    <Separator />
+                    
+                    <div>
+                        <h3 className="text-lg font-semibold mb-3">One-Time Events</h3>
+                        <div className="space-y-2 mb-4 p-4 border rounded-lg">
+                             <h4 className="font-medium">Add New Event</h4>
+                             <div className="flex flex-col md:flex-row items-center gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn("w-full md:w-[280px] justify-start text-left font-normal", !newEventDate && "text-muted-foreground")}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {newEventDate ? format(newEventDate, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={newEventDate} onSelect={setNewEventDate} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                                <Input
+                                    type="text"
+                                    value={newEventTitle}
+                                    placeholder="Event title (e.g., Charity Stream)"
+                                    onChange={(e) => setNewEventTitle(e.target.value)}
+                                />
+                                <Button type="button" onClick={handleAddOneTimeEvent}>
+                                    <PlusCircle className="mr-2"/> Add
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            {oneTimeEvents.map((event) => (
+                                <div key={event.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary">
+                                    <div>
+                                        <p className="font-medium">{event.title}</p>
+                                        <p className="text-sm text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d, yyyy')}</p>
+                                    </div>
+                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveOneTimeEvent(event.id)} type="button">
+                                        <Trash2 className="text-destructive h-4 w-4"/>
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+
+                    <Separator />
+
+                    <div className="flex justify-end">
+                        <SubmitButton variant="default">Save All Schedule Changes</SubmitButton>
                     </div>
                 </form>
             </CardContent>

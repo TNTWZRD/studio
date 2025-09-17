@@ -1,11 +1,12 @@
 import { getEvents, getStreamers } from '@/lib/data';
 import { Event, Streamer } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock } from 'lucide-react';
+import { Calendar, Clock, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -42,6 +43,10 @@ function StreamerScheduleCard({ streamer }: { streamer: Streamer }) {
   const today = new Date();
   const todayName = format(today, 'eeee');
 
+  const sortedOneTimeEvents = (streamer.oneTimeEvents || [])
+    .filter(event => new Date(event.date) >= today)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -58,9 +63,26 @@ function StreamerScheduleCard({ streamer }: { streamer: Streamer }) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-grow">
+      <CardContent className="flex-grow flex flex-col">
+        {sortedOneTimeEvents.length > 0 && (
+            <div className="mb-4">
+                 <h3 className="font-semibold mb-2 text-muted-foreground flex items-center"><Star className="mr-2 h-4 w-4 text-yellow-500 fill-yellow-500" /> One-Time Events</h3>
+                 <ul className="space-y-2 text-sm">
+                    {sortedOneTimeEvents.map(event => (
+                        <li key={event.id} className="flex justify-between p-2 rounded-md bg-accent/10">
+                            <div>
+                                <p className="font-medium text-accent">{event.title}</p>
+                                <p className="text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d')}</p>
+                            </div>
+                        </li>
+                    ))}
+                 </ul>
+                 <Separator className="my-4"/>
+            </div>
+        )}
+
         <h3 className="font-semibold mb-2 text-muted-foreground">Weekly Schedule</h3>
-        {streamer.schedule && streamer.schedule.length > 0 ? (
+        {(streamer.schedule && streamer.schedule.length > 0) ? (
           <ul className="space-y-1 text-sm">
             {daysOfWeek.map(day => {
                 const scheduleForDay = streamer.schedule?.find(s => s.day === day);
@@ -77,7 +99,7 @@ function StreamerScheduleCard({ streamer }: { streamer: Streamer }) {
             })}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">No schedule set yet.</p>
+          <p className="text-sm text-muted-foreground">No recurring schedule set yet.</p>
         )}
       </CardContent>
     </Card>
@@ -89,7 +111,7 @@ export default async function SchedulesPage() {
   const allStreamers = await getStreamers();
 
   const upcomingEvents = allEvents.filter(e => e.status === 'upcoming' || e.status === 'live');
-  const streamersWithSchedules = allStreamers.filter(s => s.schedule && s.schedule.length > 0);
+  const streamersWithSchedules = allStreamers.filter(s => (s.schedule && s.schedule.length > 0) || (s.oneTimeEvents && s.oneTimeEvents.length > 0));
 
   return (
     <div className="container mx-auto py-12">
