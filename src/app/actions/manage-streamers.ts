@@ -133,16 +133,15 @@ export async function removeStreamer(prevState: FormState, formData: FormData): 
 const UpdateScheduleSchema = z.object({
     streamerId: z.string().min(1),
     schedule: z.string(),
-    oneTimeEvents: z.string(),
 });
 
-export async function updateSchedule(prevState: FormState, formData: FormData): Promise<FormState> {
+export async function updateRecurringSchedule(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = UpdateScheduleSchema.safeParse(Object.fromEntries(formData.entries()));
     if (!validatedFields.success) {
         return { success: false, message: 'Invalid data.' };
     }
 
-    const { streamerId, schedule, oneTimeEvents } = validatedFields.data;
+    const { streamerId, schedule } = validatedFields.data;
 
     try {
         let parsedSchedule = [];
@@ -151,15 +150,6 @@ export async function updateSchedule(prevState: FormState, formData: FormData): 
                 parsedSchedule = JSON.parse(schedule);
             } catch (e) {
                 return { success: false, message: 'Invalid recurring schedule format.' };
-            }
-        }
-        
-        let parsedOneTimeEvents = [];
-        if (oneTimeEvents) {
-             try {
-                parsedOneTimeEvents = JSON.parse(oneTimeEvents);
-            } catch (e) {
-                return { success: false, message: 'Invalid one-time schedule format.' };
             }
         }
 
@@ -171,18 +161,85 @@ export async function updateSchedule(prevState: FormState, formData: FormData): 
         }
 
         streamers[streamerIndex].schedule = parsedSchedule;
-        streamers[streamerIndex].oneTimeEvents = parsedOneTimeEvents;
 
         await writeStreamersFile(streamers);
 
         revalidatePath('/creator');
         revalidatePath('/schedules');
 
-        return { success: true, message: 'Schedule updated successfully.' };
+        return { success: true, message: 'Recurring schedule updated successfully.' };
     } catch (e: any) {
         return { success: false, message: e.message || 'An error occurred.' };
     }
 }
+
+
+const OneTimeEventSchema = z.object({
+    streamerIds: z.preprocess((arg) => {
+        if (typeof arg === 'string') return [arg];
+        if (Array.isArray(arg)) return arg;
+        return [];
+    }, z.array(z.string().min(1))),
+    title: z.string().min(1),
+    date: z.string().datetime(),
+    time: z.string().min(1),
+    action: z.enum(['add', 'remove']),
+    eventId: z.string().optional(),
+});
+
+export async function updateOneTimeEvents(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = OneTimeEventSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        const message = Object.values(errors).flat()[0] || 'Invalid data provided.';
+        return { success: false, message };
+    }
+
+    const { streamerIds, title, date, time, action, eventId } = validatedFields.data;
+
+    try {
+        const streamers = await readStreamersFile();
+        let eventTitleForMessage = title;
+        
+        for (const streamerId of streamerIds) {
+            const streamerIndex = streamers.findIndex(s => s.id === streamerId);
+            if (streamerIndex === -1) {
+                console.warn(`Streamer with ID ${streamerId} not found. Skipping.`);
+                continue;
+            }
+
+            if (!streamers[streamerIndex].oneTimeEvents) {
+                streamers[streamerIndex].oneTimeEvents = [];
+            }
+            
+            if (action === 'add') {
+                const newEvent = { id: `event-${Date.now()}`, title, date, time };
+                streamers[streamerIndex].oneTimeEvents!.push(newEvent);
+            } else if (action === 'remove' && eventId) {
+                const eventToRemove = streamers[streamerIndex].oneTimeEvents!.find(e => e.id === eventId);
+                if(eventToRemove) eventTitleForMessage = eventToRemove.title;
+
+                streamers[streamerIndex].oneTimeEvents = streamers[streamerIndex].oneTimeEvents!.filter(e => e.id !== eventId);
+            }
+        }
+        
+        await writeStreamersFile(streamers);
+
+        revalidatePath('/creator');
+        revalidatePath('/schedules');
+
+        if (action === 'add') {
+            return { success: true, message: `One-time event "${eventTitleForMessage}" added successfully.` };
+        } else {
+            return { success: true, message: `One-time event "${eventTitleForMessage}" removed successfully.` };
+        }
+
+    } catch (e: any) {
+        return { success: false, message: e.message || 'An error occurred.' };
+    }
+}
+
 
 const AssignStreamerSchema = z.object({
   streamerId: z.string().min(1),

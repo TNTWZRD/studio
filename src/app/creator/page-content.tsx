@@ -12,10 +12,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { MediaItem, Streamer } from '@/lib/types';
-import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon, User, ChevronRight } from 'lucide-react';
+import { Trash2, PlusCircle, MinusCircle, Edit, Calendar as CalendarIcon, User, ChevronRight, Check, ChevronsUpDown } from 'lucide-react';
 import { addMedia, removeMedia, updateMedia } from '../actions/manage-media';
 import { useAuth } from '@/hooks/use-auth';
-import { updateSchedule, addStreamer, assignStreamerToUser } from '../actions/manage-streamers';
+import { updateRecurringSchedule, addStreamer, assignStreamerToUser, updateOneTimeEvents } from '../actions/manage-streamers';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -23,12 +23,8 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 function SubmitButton({ children, variant }: { children: React.ReactNode, variant?: any }) {
@@ -250,17 +246,10 @@ function MediaList({ media }: { media: MediaItem[] }) {
 // Schedule Management
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function ScheduleManager({ streamer }: { streamer: Streamer }) {
+function RecurringScheduleManager({ streamer }: { streamer: Streamer }) {
     const { toast } = useToast();
     const [recurringSchedule, setRecurringSchedule] = useState(streamer.schedule || []);
-    const [oneTimeEvents, setOneTimeEvents] = useState(streamer.oneTimeEvents || []);
-    
-    // For the "Add one-time event" form
-    const [newEventDate, setNewEventDate] = useState<Date>();
-    const [newEventTime, setNewEventTime] = useState('');
-    const [newEventTitle, setNewEventTitle] = useState('');
-
-    const [state, formAction] = useActionState(updateSchedule, {
+    const [state, formAction] = useActionState(updateRecurringSchedule, {
         success: false,
         message: '',
     });
@@ -289,134 +278,190 @@ function ScheduleManager({ streamer }: { streamer: Streamer }) {
         setRecurringSchedule(newSchedule);
     };
 
-    const handleAddOneTimeEvent = () => {
-        if (!newEventDate || !newEventTime || !newEventTitle) {
-            toast({
-                title: 'Error',
-                description: 'Please provide a title, date, and time for the one-time event.',
-                variant: 'destructive',
-            });
-            return;
-        }
-        setOneTimeEvents([...oneTimeEvents, { id: `event-${Date.now()}`, date: newEventDate.toISOString(), time: newEventTime, title: newEventTitle }]);
-        setNewEventDate(undefined);
-        setNewEventTime('');
-        setNewEventTitle('');
-    };
-
-    const handleRemoveOneTimeEvent = (id: string) => {
-        setOneTimeEvents(oneTimeEvents.filter(event => event.id !== id));
-    };
-
-    return (
+     return (
         <Card>
             <CardHeader>
-                <CardTitle>Manage Schedule for: {streamer.name} ({streamer.platform})</CardTitle>
-                <CardDescription>Let the community know when you'll be live. All times are for display only.</CardDescription>
+                <CardTitle>Recurring Schedule: {streamer.name} ({streamer.platform})</CardTitle>
+                <CardDescription>Set your standard weekly stream times.</CardDescription>
             </CardHeader>
             <CardContent>
                  <form action={formAction} className="space-y-6">
                     <input type="hidden" name="streamerId" value={streamer.id} />
                     <input type="hidden" name="schedule" value={JSON.stringify(recurringSchedule)} />
-                    <input type="hidden" name="oneTimeEvents" value={JSON.stringify(oneTimeEvents)} />
-
-                    <div>
-                        <h3 className="text-lg font-semibold mb-3">Recurring Weekly Schedule</h3>
-                        <div className="space-y-4">
-                        {recurringSchedule.map((slot, index) => (
-                            <div key={index} className="flex flex-col md:flex-row items-center gap-2">
-                                <Select
-                                    value={slot.day}
-                                    onValueChange={(value) => handleRecurringScheduleChange(index, 'day', value)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select day" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Input
-                                    type="text"
-                                    value={slot.time}
-                                    placeholder="e.g., 8:00 PM EST"
-                                    onChange={(e) => handleRecurringScheduleChange(index, 'time', e.target.value)}
-                                />
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveRecurringSlot(index)} type="button">
-                                    <MinusCircle className="text-destructive"/>
-                                </Button>
-                            </div>
-                        ))}
-                        </div>
-                         <Button variant="outline" type="button" onClick={handleAddRecurringSlot} className="mt-4">
-                            <PlusCircle className="mr-2"/>
-                            Add Recurring Slot
-                        </Button>
-                    </div>
-
-                    <Separator />
                     
-                    <div>
-                        <h3 className="text-lg font-semibold mb-3">One-Time Events</h3>
-                        <div className="space-y-3 mb-4 p-4 border rounded-lg">
-                             <h4 className="font-medium">Add New Event</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn("w-full justify-start text-left font-normal", !newEventDate && "text-muted-foreground")}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newEventDate ? format(newEventDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={newEventDate} onSelect={setNewEventDate} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                                <Input
-                                    type="text"
-                                    value={newEventTime}
-                                    placeholder="e.g., 8:00 PM EST"
-                                    onChange={(e) => setNewEventTime(e.target.value)}
-                                />
-                            </div>
-                             <Input
+                    <div className="space-y-4">
+                    {recurringSchedule.map((slot, index) => (
+                        <div key={index} className="flex flex-col md:flex-row items-center gap-2">
+                            <Select
+                                value={slot.day}
+                                onValueChange={(value) => handleRecurringScheduleChange(index, 'day', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select day" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Input
                                 type="text"
-                                value={newEventTitle}
-                                placeholder="Event info (e.g., Charity Stream)"
-                                onChange={(e) => setNewEventTitle(e.target.value)}
+                                value={slot.time}
+                                placeholder="e.g., 8:00 PM EST"
+                                onChange={(e) => handleRecurringScheduleChange(index, 'time', e.target.value)}
                             />
-                            <Button type="button" onClick={handleAddOneTimeEvent} className="w-full md:w-auto">
-                                <PlusCircle className="mr-2"/> Add Event
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveRecurringSlot(index)} type="button">
+                                <MinusCircle className="text-destructive"/>
                             </Button>
                         </div>
-
-                        <div className="space-y-2">
-                            {oneTimeEvents.map((event) => (
-                                <div key={event.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary">
-                                    <div>
-                                        <p className="font-medium">{event.title}</p>
-                                        <p className="text-sm text-muted-foreground">{format(new Date(event.date), 'eeee, MMMM d, yyyy')} at {event.time}</p>
-                                    </div>
-                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveOneTimeEvent(event.id)} type="button">
-                                        <Trash2 className="text-destructive h-4 w-4"/>
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
+                    ))}
                     </div>
-
+                     <Button variant="outline" type="button" onClick={handleAddRecurringSlot} className="mt-4">
+                        <PlusCircle className="mr-2"/>
+                        Add Recurring Slot
+                    </Button>
                     <Separator />
-
                     <div className="flex justify-end">
-                        <SubmitButton variant="default">Save All Schedule Changes</SubmitButton>
+                        <SubmitButton variant="default">Save Recurring Schedule</SubmitButton>
                     </div>
                 </form>
             </CardContent>
         </Card>
-    )
+    );
+}
+
+function OneTimeEventManager({ userStreamerProfiles }: { userStreamerProfiles: Streamer[] }) {
+    const { toast } = useToast();
+    const formRef = useRef<HTMLFormElement>(null);
+
+    const [newEventDate, setNewEventDate] = useState<Date>();
+    const [selectedProfiles, setSelectedProfiles] = useState<Record<string, boolean>>({});
+
+    const [state, formAction] = useActionState(updateOneTimeEvents, { success: false, message: '' });
+
+    useEffect(() => {
+        if (state.message) {
+            toast({
+                title: state.success ? 'Success!' : 'Error',
+                description: state.message,
+                variant: state.success ? 'default' : 'destructive',
+            });
+            if (state.success) {
+                formRef.current?.reset();
+                setNewEventDate(undefined);
+                setSelectedProfiles({});
+            }
+        }
+    }, [state, toast]);
+
+    const allOneTimeEvents = userStreamerProfiles.flatMap(p => 
+        (p.oneTimeEvents || []).map(e => ({ ...e, streamerProfile: p }))
+    ).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const selectedProfileCount = Object.values(selectedProfiles).filter(Boolean).length;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>One-Time Events</CardTitle>
+                <CardDescription>Announce special streams or events. These will appear on the main schedule page.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <form ref={formRef} action={formAction} className="space-y-4 p-4 border rounded-lg">
+                    <h3 className="font-semibold text-lg">Add a New One-Time Event</h3>
+                    <input type="hidden" name="action" value="add" />
+                    {Object.entries(selectedProfiles).map(([profileId, isSelected]) => 
+                        isSelected ? <input key={profileId} type="hidden" name="streamerIds" value={profileId} /> : null
+                    )}
+
+                    <div className="space-y-2">
+                        <Label htmlFor="title">Event Info / Title</Label>
+                        <Input id="title" name="title" placeholder="e.g., Charity Stream" required />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn("w-full justify-start text-left font-normal", !newEventDate && "text-muted-foreground")}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {newEventDate ? format(newEventDate, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={newEventDate} onSelect={setNewEventDate} initialFocus />
+                                </PopoverContent>
+                            </Popover>
+                            <input type="hidden" name="date" value={newEventDate?.toISOString()} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="time">Time</Label>
+                            <Input id="time" name="time" placeholder="e.g., 8:00 PM EST" required />
+                        </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label>Platforms</Label>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="w-full md:w-auto justify-between">
+                                    {selectedProfileCount === 0 && 'Select Platforms'}
+                                    {selectedProfileCount === 1 && '1 Platform Selected'}
+                                    {selectedProfileCount > 1 && `${selectedProfileCount} Platforms Selected`}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                                {userStreamerProfiles.map(p => (
+                                    <DropdownMenuCheckboxItem
+                                        key={p.id}
+                                        checked={selectedProfiles[p.id] || false}
+                                        onCheckedChange={(checked) => setSelectedProfiles(prev => ({ ...prev, [p.id]: !!checked }))}
+                                    >
+                                        {p.name} ({p.platform})
+                                    </DropdownMenuCheckboxItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+
+                    <SubmitButton>
+                        <PlusCircle className="mr-2"/> Add Event
+                    </SubmitButton>
+                </form>
+
+                <div>
+                    <h3 className="font-semibold text-lg mb-2">Upcoming One-Time Events</h3>
+                     <div className="space-y-2">
+                        {allOneTimeEvents.length > 0 ? allOneTimeEvents.map((event) => (
+                            <div key={`${event.streamerProfile.id}-${event.id}`} className="flex items-center justify-between gap-2 p-2 rounded-md bg-secondary">
+                                <div>
+                                    <p className="font-medium">{event.title}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {format(new Date(event.date), 'eeee, MMMM d')} at {event.time} 
+                                        <span className="text-xs capitalize ml-2 p-1 bg-background rounded-sm">({event.streamerProfile.platform})</span>
+                                    </p>
+                                </div>
+                                <form action={formAction}>
+                                    <input type="hidden" name="action" value="remove"/>
+                                    <input type="hidden" name="streamerIds" value={event.streamerProfile.id}/>
+                                    <input type="hidden" name="eventId" value={event.id}/>
+                                    <Button variant="ghost" size="icon" type="submit">
+                                        <Trash2 className="text-destructive h-4 w-4"/>
+                                    </Button>
+                                </form>
+                            </div>
+                        )) : (
+                            <p className="text-sm text-muted-foreground text-center py-4">No one-time events scheduled.</p>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
 function ClaimProfileForm({ unassignedStreamers, userId }: { unassignedStreamers: Streamer[], userId: string }) {
@@ -609,7 +654,8 @@ function CreatorPageComponent({ allStreamers, allMedia }: { allStreamers: Stream
                 <MediaList media={userMedia} />
             </TabsContent>
             <TabsContent value="schedule" className="space-y-6 mt-6">
-                {userStreamerProfiles.map(profile => <ScheduleManager key={profile.id} streamer={profile} />)}
+                <OneTimeEventManager userStreamerProfiles={userStreamerProfiles} />
+                {userStreamerProfiles.map(profile => <RecurringScheduleManager key={profile.id} streamer={profile} />)}
             </TabsContent>
         </Tabs>
 
