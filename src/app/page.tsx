@@ -1,3 +1,4 @@
+
 import React, { Suspense } from 'react';
 import AboutSection from '@/components/sections/about';
 import EventsSummary from '@/components/sections/events-summary';
@@ -8,7 +9,6 @@ import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Event, MediaItem, Streamer } from '@/lib/types';
 import { getEvents, getMedia, getStreamers } from '@/lib/data';
-import { AuthHandler } from '@/components/auth/auth-handler';
 import Hero from '@/components/sections/hero';
 
 function EventSummarySkeleton() {
@@ -56,7 +56,6 @@ function PageContent({
 
     return (
         <div className="flex flex-col">
-            <AuthHandler />
             <Hero />
             <LiveStreamers initialLiveStreamers={liveStreamers} />
             <AboutSection />
@@ -76,9 +75,15 @@ export default async function Home() {
         getEvents()
     ]);
     
-    const displayEvents = allEvents
-        .filter(e => e.status === 'live' || e.status === 'upcoming')
-        .slice(0, 3);
+    const liveEvents = allEvents.filter(e => e.status === 'live');
+    const upcomingEvents = allEvents.filter(e => e.status === 'upcoming');
+
+    let displayEvents;
+    if (liveEvents.length > 0) {
+        displayEvents = liveEvents.slice(0, 3);
+    } else {
+        displayEvents = upcomingEvents.slice(0, 3);
+    }
         
     const displayMedia = recentMedia.slice(0, 4);
 

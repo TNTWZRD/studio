@@ -1,16 +1,17 @@
-
 [
   {
-    "id": "event-2025-09-scrim",
-    "title": "AMW Weekly Scrim",
-    "start": "2025-09-20T19:00:00Z",
-    "end": "2025-09-20T21:00:00Z",
-    "status": "upcoming",
+    "id": "event-1758076167044",
+    "title": "Resurgence Solo Kill Race",
+    "start": "2025-09-14T04:00:00.000Z",
+    "end": "2025-09-30T04:00:00.000Z",
+    "status": "live",
+    "details": "Resurgence Solos Kill Race https://resurgancesolos.jajliardo.com for submissions",
     "participants": [
-      { "id": "p1", "name": "Team Alpha" },
-      { "id": "p2", "name": "Team Bravo" }
+      {
+        "id": "p-new",
+        "name": "Community"
+      }
     ],
-    "details": "This week's scrim is on the new map. Standard competitive rules apply. Be in the Discord voice channel 15 minutes before start time.",
-    "image": "10"
+    "image": "19"
   }
 ]
