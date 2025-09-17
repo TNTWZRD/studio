@@ -38,6 +38,10 @@ function getYouTubeVideoId(url: string): string | null {
 function MediaCard({ item }: { item: MediaItem }) {
   const [open, setOpen] = useState(false);
   const youTubeId = item.type === 'video' || item.type === 'clip' || item.type === 'short' ? getYouTubeVideoId(item.url) : null;
+  const thumbnailUrl = youTubeId
+    ? `https://i.ytimg.com/vi/${youTubeId}/hqdefault.jpg`
+    : item.thumbnail;
+
 
   if (youTubeId) {
     return (
@@ -46,7 +50,7 @@ function MediaCard({ item }: { item: MediaItem }) {
           <DialogTrigger asChild>
              <div className="relative aspect-video cursor-pointer">
               <Image
-                src={item.thumbnail}
+                src={thumbnailUrl}
                 alt={item.title}
                 fill
                 className="object-cover"
@@ -97,7 +101,7 @@ function MediaCard({ item }: { item: MediaItem }) {
         <Card className="overflow-hidden shadow-lg transition-transform duration-300 group-hover:scale-105 group-hover:shadow-xl h-full flex flex-col">
             <div className="relative aspect-video">
                 <Image
-                    src={item.thumbnail}
+                    src={thumbnailUrl}
                     alt={item.title}
                     fill
                     className="object-cover"
