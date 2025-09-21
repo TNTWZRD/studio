@@ -50,12 +50,10 @@ function PageContent({
     recentMedia: MediaItem[],
     upcomingEvents: Event[],
 }) {
-    const liveStreamers = allStreamers.filter((s) => s.isLive);
-
     return (
         <div className="flex flex-col">
             <Hero />
-            <LiveStreamers initialLiveStreamers={liveStreamers} />
+            <LiveStreamers allStreamers={allStreamers} />
             <MediaSummary media={recentMedia} />
             <Suspense fallback={<EventSummarySkeleton />}>
                 <EventsSummary events={upcomingEvents} />
