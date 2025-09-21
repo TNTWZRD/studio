@@ -1,5 +1,6 @@
 
 
+
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
 
@@ -52,6 +53,8 @@ function getIdentifierFromUrl(url: string): string | null {
         if (pathParts.length > 0) {
             // Handles /@handle, /c/name, /user/name
             if (pathParts[0] === 'c' || pathParts[0] === 'user' || pathParts[0].startsWith('@')) {
+                 // For /@handle, use pathParts[0] (e.g. '@handle') -> 'handle'
+                 // For /c/name or /user/name, use pathParts[1]
                 const identifier = pathParts[0].startsWith('@') ? pathParts[0].substring(1) : pathParts[1];
                 return identifier;
             }
@@ -133,12 +136,12 @@ export async function getYouTubeStreamStatus(channelUrls: string[]): Promise<Liv
             }
 
             if (!channelId) {
-                console.warn(`Could not determine Channel ID for URL: ${url}`);
+                console.error(`Error: Could not determine Channel ID for URL: ${url}`);
                 continue;
             }
 
             const searchUrl = `${YOUTUBE_API_URL}/search?part=snippet&channelId=${channelId}&eventType=live&type=video&key=${YOUTUBE_API_KEY}`;
-            const res = await fetch(searchUrl, { next: { revalidate: 120 } }); // Revalidate every 2 minutes
+            const res = await fetch(searchUrl, { cache: 'no-store' }); // Revalidate every 2 minutes
 
             if (!res.ok) {
                  console.error(`YouTube API error (getYouTubeStreamStatus for ${channelId}): ${res.status} ${await res.text()}`);

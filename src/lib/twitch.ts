@@ -93,10 +93,7 @@ export async function getTwitchStreamStatus(userLogins: string[]): Promise<Twitc
             'Client-ID': clientId,
             'Authorization': `Bearer ${token}`,
         },
-        next: {
-            // Revalidate the data every 2 minutes
-            revalidate: 120
-        }
+        cache: 'no-store' // Do not cache results
     });
 
     if (!response.ok) {
