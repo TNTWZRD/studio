@@ -6,7 +6,7 @@ import { PlaceHolderImages, ImagePlaceholder } from './placeholder-images';
 import { getTwitchUsers } from './twitch';
 import { getYouTubeChannelDetails } from './youtube';
 
-const getImage = (id: string): ImagePlaceholder => {
+const getPlaceholderImage = (id: string): ImagePlaceholder => {
     const img = PlaceHolderImages.find(p => p.id === id);
     if (!img) {
         const randomId = Math.floor(Math.random() * 5) + 1;
@@ -58,12 +58,12 @@ async function fetchStreamerAvatars(streamers: Streamer[]): Promise<Streamer[]> 
         const getAvatar = (streamer: Streamer): string => {
             if (streamer.platform.toLowerCase() === 'twitch') {
                 const login = getIdentifierFromUrl('twitch', streamer.platformUrl);
-                return twitchAvatars.get(login.toLowerCase()) || getImage(streamer.id).imageUrl;
+                return twitchAvatars.get(login.toLowerCase()) || getPlaceholderImage(streamer.id).imageUrl;
             }
             if (streamer.platform.toLowerCase() === 'youtube') {
-                return youtubeAvatars.get(streamer.platformUrl.toLowerCase()) || getImage(streamer.id).imageUrl;
+                return youtubeAvatars.get(streamer.platformUrl.toLowerCase()) || getPlaceholderImage(streamer.id).imageUrl;
             }
-            return getImage(streamer.id).imageUrl;
+            return getPlaceholderImage(streamer.id).imageUrl;
         };
 
         const combinedAvatars = new Map<string, string>();
@@ -81,7 +81,7 @@ async function fetchStreamerAvatars(streamers: Streamer[]): Promise<Streamer[]> 
 
     } catch (error) {
         console.error("Error fetching streamer avatars, using placeholders.", error);
-        return streamers.map(s => ({...s, avatar: getImage(s.id).imageUrl }));
+        return streamers.map(s => ({...s, avatar: getPlaceholderImage(s.id).imageUrl }));
     }
 }
 
@@ -101,6 +101,46 @@ export async function getStreamers(): Promise<Streamer[]> {
     return fetchStreamerAvatars(streamers);
 }
 
+function getYouTubeVideoId(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
+      if (urlObj.pathname === '/watch') {
+        return urlObj.searchParams.get('v');
+      }
+      if (urlObj.pathname.startsWith('/embed/')) {
+        return urlObj.pathname.split('/')[2];
+      }
+       if (urlObj.pathname.startsWith('/shorts/')) {
+        return urlObj.pathname.split('/')[2];
+      }
+    } else if (urlObj.hostname === 'youtu.be') {
+      return urlObj.pathname.substring(1);
+    }
+  } catch (error) {
+    console.error('Invalid URL:', url, error);
+    return null;
+  }
+  return null;
+}
+
+function getMediaThumbnail(item: MediaItem): string {
+    const youTubeId = getYouTubeVideoId(item.url);
+    if(youTubeId) return `https://i.ytimg.com/vi/${youTubeId}/hqdefault.jpg`;
+    return item.thumbnail && item.thumbnail.startsWith('http') ? item.thumbnail : getPlaceholderImage(item.thumbnail).imageUrl;
+}
+
+function getEventImageUrl(event: any, associatedMedia: MediaItem[]): string {
+    if (event.image && event.image.startsWith('http')) {
+        return event.image;
+    }
+    if (associatedMedia.length > 0) {
+        const randomIndex = Math.floor(Math.random() * associatedMedia.length);
+        return getMediaThumbnail(associatedMedia[randomIndex]);
+    }
+    return getPlaceholderImage(event.image || String(Math.floor(Math.random() * 20) + 1)).imageUrl;
+}
+
 export async function getEvents(): Promise<Event[]> {
     const allMedia = await getMedia();
     const mediaMap = new Map(allMedia.map(m => [m.id, m]));
@@ -112,18 +152,12 @@ export async function getEvents(): Promise<Event[]> {
         const mediaIds = event.media ? JSON.parse(event.media) : [];
         const associatedMedia = mediaIds.map((id: string) => mediaMap.get(id)).filter(Boolean) as MediaItem[];
         
-        let imageUrl = getImage(event.image).imageUrl;
-        if (associatedMedia.length > 0) {
-            const randomIndex = Math.floor(Math.random() * associatedMedia.length);
-            imageUrl = associatedMedia[randomIndex].thumbnail;
-        }
-
         return {
             ...event,
-            image: imageUrl,
+            image: getEventImageUrl(event, associatedMedia),
             participants: event.participants ? JSON.parse(event.participants) : [],
             scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
-            media: associatedMedia,
+            media: associatedMedia.map(m => ({ ...m, thumbnail: getMediaThumbnail(m) })),
             mediaIds: mediaIds,
             url: event.url,
         }
@@ -142,18 +176,12 @@ export async function getEventById(id: string): Promise<Event | undefined> {
     const mediaIds = event.media ? JSON.parse(event.media) : [];
     const associatedMedia = mediaIds.map((id: string) => mediaMap.get(id)).filter(Boolean) as MediaItem[];
         
-    let imageUrl = getImage(event.image).imageUrl;
-    if (associatedMedia.length > 0) {
-        const randomIndex = Math.floor(Math.random() * associatedMedia.length);
-        imageUrl = associatedMedia[randomIndex].thumbnail;
-    }
-
     return {
         ...event,
-        image: imageUrl,
+        image: getEventImageUrl(event, associatedMedia),
         participants: event.participants ? JSON.parse(event.participants) : [],
         scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
-        media: associatedMedia,
+        media: associatedMedia.map(m => ({ ...m, thumbnail: getMediaThumbnail(m) })),
         mediaIds: mediaIds,
         url: event.url,
     };
@@ -165,7 +193,7 @@ export async function getMedia(): Promise<MediaItem[]> {
 
     return dbMedia.map(item => ({
         ...item,
-        thumbnail: getImage(item.thumbnail).imageUrl,
+        thumbnail: getMediaThumbnail(item),
     }));
 }
 

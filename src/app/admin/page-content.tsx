@@ -337,9 +337,15 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                         <Label htmlFor="details">Details</Label>
                         <Textarea id="details" name="details" placeholder="Describe the event..." required />
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="url">Event URL (Optional)</Label>
-                        <Input id="url" name="url" type="url" placeholder="https://example.com/event-page"/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="url">Event URL (Optional)</Label>
+                            <Input id="url" name="url" type="url" placeholder="https://example.com/event-page"/>
+                        </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="imageUrl">Banner Image URL (Optional)</Label>
+                            <Input id="imageUrl" name="imageUrl" type="url" placeholder="https://example.com/image.png"/>
+                        </div>
                     </div>
 
                     <div className="space-y-2">
@@ -375,6 +381,10 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
     const [startDate, setStartDate] = useState<Date | undefined>(new Date(event.start));
     const [endDate, setEndDate] = useState<Date | undefined>(event.end ? new Date(event.end) : undefined);
     const [selectedMedia, setSelectedMedia] = useState<string[]>(event.mediaIds || []);
+    
+    // Check if the image is a placeholder ID or a URL
+    const isImageUrl = event.image && event.image.startsWith('http');
+    const defaultImageUrl = isImageUrl ? event.image : '';
 
     const [state, formAction] = useActionState(updateEvent, {
         success: false,
@@ -473,9 +483,15 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
                         <Label htmlFor="details">Details</Label>
                         <Textarea id="details" name="details" defaultValue={event.details} required />
                     </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="url">Event URL (Optional)</Label>
-                        <Input id="url" name="url" type="url" placeholder="https://example.com/event-page" defaultValue={event.url}/>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="url">Event URL (Optional)</Label>
+                            <Input id="url" name="url" type="url" placeholder="https://example.com/event-page" defaultValue={event.url}/>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="imageUrl">Banner Image URL (Optional)</Label>
+                            <Input id="imageUrl" name="imageUrl" type="url" placeholder="Leave blank to use media thumbnail" defaultValue={defaultImageUrl}/>
+                        </div>
                     </div>
 
                     <div className="space-y-2">

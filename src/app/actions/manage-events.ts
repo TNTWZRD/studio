@@ -18,6 +18,7 @@ const EventSchema = z.object({
     details: z.string().min(1, 'Details are required.'),
     status: z.enum(['upcoming', 'live', 'past']),
     url: z.string().url().optional().or(z.literal('')),
+    imageUrl: z.string().url().optional().or(z.literal('')),
     media: mediaIdsPreprocess.optional(),
 });
 
@@ -42,7 +43,7 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
         };
     }
     
-    const { title, start, end, details, status, url, media } = validatedFields.data;
+    const { title, start, end, details, status, url, imageUrl, media } = validatedFields.data;
 
     try {
         const newId = 'event-' + Date.now();
@@ -54,7 +55,7 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
             status,
             details,
             participants: JSON.stringify([{ id: 'p-new', name: 'Community' }]),
-            image: String(Math.floor(Math.random() * 20) + 1), // Assign a random placeholder image ID
+            image: imageUrl || String(Math.floor(Math.random() * 20) + 1), // Use URL or fallback to random placeholder ID
             scoreboard: '[]',
             url: url || null,
             media: JSON.stringify(media || []),
@@ -88,16 +89,26 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
         };
     }
 
-    const { id, title, start, end, details, status, url, media } = validatedFields.data;
+    const { id, title, start, end, details, status, url, imageUrl, media } = validatedFields.data;
 
     try {
         const stmt = db.prepare(`
             UPDATE events 
-            SET title = @title, start = @start, "end" = @end, details = @details, status = @status, url = @url, media = @media
+            SET title = @title, start = @start, "end" = @end, details = @details, status = @status, url = @url, image = @image, media = @media
             WHERE id = @id
         `);
         
-        const result = stmt.run({ id, title, start, end, details, status, url: url || null, media: JSON.stringify(media || []) });
+        const result = stmt.run({ 
+            id, 
+            title, 
+            start, 
+            end, 
+            details, 
+            status, 
+            url: url || null, 
+            image: imageUrl || String(Math.floor(Math.random() * 20) + 1),
+            media: JSON.stringify(media || []) 
+        });
 
         if (result.changes === 0) {
             return { success: false, message: "Event not found." };
