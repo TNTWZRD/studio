@@ -1,36 +1,14 @@
-
 'use server';
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { db } from './db';
 import { Streamer, Event, MediaItem, Config } from '@/lib/types';
 import { PlaceHolderImages, ImagePlaceholder } from './placeholder-images';
 import { getTwitchUsers } from './twitch';
 import { getYouTubeChannelDetails } from './youtube';
 
-// Helper function to read and parse a JSON file
-async function readJsonFile<T>(filePath: string): Promise<T> {
-    const fullPath = path.join(process.cwd(), filePath);
-    try {
-        const fileContent = await fs.readFile(fullPath, 'utf-8');
-        return JSON.parse(fileContent);
-    } catch (error) {
-        // If the file doesn't exist or is empty, return a default value
-        if (filePath.endsWith('streams.json') || filePath.endsWith('events.json') || filePath.endsWith('media.json')) {
-            return [] as T;
-        }
-        if (filePath.endsWith('config.json')) {
-            return { discordInviteUrl: '#' } as T;
-        }
-        throw error;
-    }
-}
-
-
 const getImage = (id: string): ImagePlaceholder => {
     const img = PlaceHolderImages.find(p => p.id === id);
     if (!img) {
-        // Fallback to a random image if ID not found, to avoid broken images
         const randomId = Math.floor(Math.random() * 5) + 1;
         const randomImg = PlaceHolderImages.find(p => p.id === String(randomId));
         return randomImg || {
@@ -43,7 +21,6 @@ const getImage = (id: string): ImagePlaceholder => {
     return img;
 };
 
-// Helper to extract login/identifier from platform URL
 function getIdentifierFromUrl(platform: 'twitch' | 'youtube' | string, url: string): string {
     try {
         const urlObj = new URL(url);
@@ -110,33 +87,58 @@ async function fetchStreamerAvatars(streamers: Streamer[]): Promise<Streamer[]> 
 
 
 export async function getStreamers(): Promise<Streamer[]> {
-    const streamers = await readJsonFile<Streamer[]>('src/data/streams.json');
+    const stmt = db.prepare('SELECT * FROM streamers');
+    const dbStreamers = stmt.all() as any[];
+
+    const streamers: Streamer[] = dbStreamers.map(s => ({
+        ...s,
+        isLive: Boolean(s.isLive),
+        featured: Boolean(s.featured),
+        schedule: s.schedule ? JSON.parse(s.schedule) : [],
+        oneTimeEvents: s.oneTimeEvents ? JSON.parse(s.oneTimeEvents) : [],
+    }));
+    
     return fetchStreamerAvatars(streamers);
 }
 
 export async function getEvents(): Promise<Event[]> {
-    const eventsData = await readJsonFile<any[]>('src/data/events.json');
-    return eventsData.map(event => ({
+    const stmt = db.prepare('SELECT * FROM events ORDER BY start DESC');
+    const dbEvents = stmt.all() as any[];
+    
+    return dbEvents.map(event => ({
         ...event,
-        image: getImage(event.image).imageUrl
-    })).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+        image: getImage(event.image).imageUrl,
+        participants: event.participants ? JSON.parse(event.participants) : [],
+        scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
+    }));
 }
 
 export async function getEventById(id: string): Promise<Event | undefined> {
-    const events = await getEvents();
-    const event = events.find(e => e.id === id);
+    const stmt = db.prepare('SELECT * FROM events WHERE id = ?');
+    const event = stmt.get(id) as any;
+
     if (!event) return undefined;
-    return event;
+    
+    return {
+        ...event,
+        image: getImage(event.image).imageUrl,
+        participants: event.participants ? JSON.parse(event.participants) : [],
+        scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
+    };
 }
 
 export async function getMedia(): Promise<MediaItem[]> {
-    const mediaData = await readJsonFile<any[]>('src/data/media.json');
-    return mediaData.map(item => ({
+    const stmt = db.prepare('SELECT * FROM media ORDER BY date DESC');
+    const dbMedia = stmt.all() as any[];
+
+    return dbMedia.map(item => ({
         ...item,
-        thumbnail: getImage(item.thumbnail).imageUrl
-    })).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        thumbnail: getImage(item.thumbnail).imageUrl,
+    }));
 }
 
 export async function getConfig(): Promise<Config> {
-    return readJsonFile<Config>('src/data/config.json');
+    const stmt = db.prepare('SELECT * FROM config WHERE id = 1');
+    const config = stmt.get() as any;
+    return config || { discordInviteUrl: '#' };
 }

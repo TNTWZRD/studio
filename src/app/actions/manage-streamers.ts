@@ -1,50 +1,26 @@
-
 'use server';
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { db } from '@/lib/db';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { Streamer } from '@/lib/types';
 import { adminAuth } from '@/lib/firebase-admin';
 
-const streamersPath = path.join(process.cwd(), 'src', 'data', 'streams.json');
-
 const AddStreamerSchema = z.object({
     name: z.string().min(1, { message: 'Name is required.' }),
     platform: z.enum(['twitch', 'youtube']),
     platformUrl: z.string().url({ message: 'A valid URL is required.' }),
-    discordUserId: z.string().optional(), // Added for creator self-service
+    discordUserId: z.string().optional(),
 });
 
 const UpdateStreamerSchema = AddStreamerSchema.extend({
     id: z.string().min(1),
 });
 
-
 type FormState = {
     success: boolean;
     message: string;
 };
-
-async function readStreamersFile(): Promise<Streamer[]> {
-    try {
-        const fileContent = await fs.readFile(streamersPath, 'utf-8');
-        return JSON.parse(fileContent);
-    } catch (error) {
-        console.error('Error reading streamers.json:', error);
-        return [];
-    }
-}
-
-async function writeStreamersFile(data: Streamer[]) {
-    try {
-        await fs.writeFile(streamersPath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error writing to streamers.json:', error);
-        throw new Error('Could not update the streamers file.');
-    }
-}
 
 export async function addStreamer(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = AddStreamerSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -59,30 +35,34 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
     const { name, platform, platformUrl, discordUserId } = validatedFields.data;
 
     try {
-        const streamers = await readStreamersFile();
-        
-        // Prevent duplicate channel URLs
-        if (streamers.some(s => s.platformUrl.toLowerCase() === platformUrl.toLowerCase())) {
+        const checkStmt = db.prepare('SELECT id FROM streamers WHERE lower(platformUrl) = lower(?)');
+        const existing = checkStmt.get(platformUrl);
+
+        if (existing) {
             return { success: false, message: 'This channel URL has already been added.' };
         }
 
-        const nextId = 'streamer-' + (streamers.length > 0 ? Math.max(...streamers.map((s: any) => parseInt(s.id.split('-')[1] || '0'))) + 1 : 1);
+        const newId = 'streamer-' + Date.now();
         
-        const newStreamer: Streamer = {
-            id: nextId,
+        const newStreamer = {
+            id: newId,
             name,
             platform,
             platformUrl,
-            avatar: '', // Avatar is now fetched dynamically
-            isLive: false,
-            title: `Welcome to my stream!`,
-            game: `Variety`,
-            featured: false,
-            discordUserId: discordUserId,
+            isLive: 0,
+            title: 'Welcome to my stream!',
+            game: 'Variety',
+            featured: 0,
+            schedule: '[]',
+            oneTimeEvents: '[]',
+            discordUserId: discordUserId || null,
         };
 
-        streamers.push(newStreamer);
-        await writeStreamersFile(streamers);
+        const insertStmt = db.prepare(`
+            INSERT INTO streamers (id, name, platform, platformUrl, isLive, title, game, featured, schedule, oneTimeEvents, discordUserId)
+            VALUES (@id, @name, @platform, @platformUrl, @isLive, @title, @game, @featured, @schedule, @oneTimeEvents, @discordUserId)
+        `);
+        insertStmt.run(newStreamer);
 
         revalidatePath('/');
         revalidatePath('/admin');
@@ -109,26 +89,19 @@ export async function updateStreamer(prevState: FormState, formData: FormData): 
     const { id, name, platform, platformUrl } = validatedFields.data;
 
     try {
-        const streamers = await readStreamersFile();
-        const streamerIndex = streamers.findIndex(s => s.id === id);
+        const checkStmt = db.prepare('SELECT id FROM streamers WHERE lower(platformUrl) = lower(?) AND id != ?');
+        const existing = checkStmt.get(platformUrl, id);
 
-        if (streamerIndex === -1) {
-            return { success: false, message: "Streamer not found." };
-        }
-
-        // Prevent duplicate channel URLs, excluding the current streamer
-        if (streamers.some(s => s.id !== id && s.platformUrl.toLowerCase() === platformUrl.toLowerCase())) {
+        if (existing) {
             return { success: false, message: 'This channel URL is already in use by another streamer.' };
         }
+        
+        const updateStmt = db.prepare('UPDATE streamers SET name = ?, platform = ?, platformUrl = ? WHERE id = ?');
+        const result = updateStmt.run(name, platform, platformUrl, id);
 
-        streamers[streamerIndex] = {
-            ...streamers[streamerIndex],
-            name,
-            platform,
-            platformUrl,
-        };
-
-        await writeStreamersFile(streamers);
+        if (result.changes === 0) {
+             return { success: false, message: "Streamer not found." };
+        }
 
         revalidatePath('/');
         revalidatePath('/admin');
@@ -140,7 +113,6 @@ export async function updateStreamer(prevState: FormState, formData: FormData): 
         return { success: false, message: error.message || 'An unexpected error occurred.' };
     }
 }
-
 
 const RemoveStreamerSchema = z.object({
     id: z.string().min(1)
@@ -159,15 +131,15 @@ export async function removeStreamer(prevState: FormState, formData: FormData): 
     const { id } = validatedFields.data;
 
     try {
-        const streamers = await readStreamersFile();
-        const streamerToRemove = streamers.find((s: any) => s.id === id);
+        const getStmt = db.prepare('SELECT name FROM streamers WHERE id = ?');
+        const streamerToRemove = getStmt.get(id) as Streamer;
 
         if (!streamerToRemove) {
             return { success: false, message: "Streamer not found." };
         }
 
-        const updatedStreamers = streamers.filter((s: any) => s.id !== id);
-        await writeStreamersFile(updatedStreamers);
+        const deleteStmt = db.prepare('DELETE FROM streamers WHERE id = ?');
+        deleteStmt.run(id);
         
         revalidatePath('/');
         revalidatePath('/admin');
@@ -195,25 +167,15 @@ export async function updateRecurringSchedule(prevState: FormState, formData: Fo
     const { streamerId, schedule } = validatedFields.data;
 
     try {
-        let parsedSchedule = [];
-        if (schedule) {
-            try {
-                parsedSchedule = JSON.parse(schedule);
-            } catch (e) {
-                return { success: false, message: 'Invalid recurring schedule format.' };
-            }
-        }
+        // Validate JSON
+        JSON.parse(schedule);
 
-        const streamers = await readStreamersFile();
-        const streamerIndex = streamers.findIndex(s => s.id === streamerId);
+        const updateStmt = db.prepare('UPDATE streamers SET schedule = ? WHERE id = ?');
+        const result = updateStmt.run(schedule, streamerId);
         
-        if (streamerIndex === -1) {
+        if (result.changes === 0) {
             return { success: false, message: 'Streamer not found.' };
         }
-
-        streamers[streamerIndex].schedule = parsedSchedule;
-
-        await writeStreamersFile(streamers);
 
         revalidatePath('/creator');
         revalidatePath('/schedules');
@@ -223,7 +185,6 @@ export async function updateRecurringSchedule(prevState: FormState, formData: Fo
         return { success: false, message: e.message || 'An error occurred.' };
     }
 }
-
 
 const streamerIdsPreprocess = z.preprocess((arg) => {
     if (typeof arg === 'string') return [arg];
@@ -255,7 +216,6 @@ const OneTimeEventSchema = z.discriminatedUnion('action', [
     })
 ]);
 
-
 export async function updateOneTimeEvents(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = OneTimeEventSchema.safeParse(Object.fromEntries(formData.entries()));
     
@@ -266,50 +226,42 @@ export async function updateOneTimeEvents(prevState: FormState, formData: FormDa
     }
     
     const data = validatedFields.data;
+    let eventTitleForMessage = 'The event';
 
     try {
-        const streamers = await readStreamersFile();
-        let eventTitleForMessage = 'The event';
-        
+        const getStmt = db.prepare('SELECT oneTimeEvents FROM streamers WHERE id = ?');
+        const updateStmt = db.prepare('UPDATE streamers SET oneTimeEvents = ? WHERE id = ?');
+
         for (const streamerId of data.streamerIds) {
-            const streamerIndex = streamers.findIndex(s => s.id === streamerId);
-            if (streamerIndex === -1) {
+            const streamer = getStmt.get(streamerId) as { oneTimeEvents: string | null };
+            if (!streamer) {
                 console.warn(`Streamer with ID ${streamerId} not found. Skipping.`);
                 continue;
             }
 
-            if (!streamers[streamerIndex].oneTimeEvents) {
-                streamers[streamerIndex].oneTimeEvents = [];
-            }
+            let oneTimeEvents = streamer.oneTimeEvents ? JSON.parse(streamer.oneTimeEvents) : [];
             
             if (data.action === 'add') {
                 const { title, date, time } = data;
                 eventTitleForMessage = title;
                 const newEvent = { id: `event-${Date.now()}-${Math.random()}`, title, date, time };
-                streamers[streamerIndex].oneTimeEvents!.push(newEvent);
+                oneTimeEvents.push(newEvent);
             } else if (data.action === 'remove') {
                 const { eventId } = data;
-                const eventToRemove = streamers[streamerIndex].oneTimeEvents!.find(e => e.id === eventId);
+                const eventToRemove = oneTimeEvents.find((e: any) => e.id === eventId);
                 if(eventToRemove) eventTitleForMessage = eventToRemove.title;
-
-                streamers[streamerIndex].oneTimeEvents = streamers[streamerIndex].oneTimeEvents!.filter(e => e.id !== eventId);
+                oneTimeEvents = oneTimeEvents.filter((e: any) => e.id !== eventId);
             } else if (data.action === 'edit') {
                  const { eventId, title, date, time } = data;
                  eventTitleForMessage = title;
-                const eventIndex = streamers[streamerIndex].oneTimeEvents!.findIndex(e => e.id === eventId);
+                const eventIndex = oneTimeEvents.findIndex((e: any) => e.id === eventId);
                 if (eventIndex !== -1) {
-                     streamers[streamerIndex].oneTimeEvents![eventIndex] = {
-                        ...streamers[streamerIndex].oneTimeEvents![eventIndex],
-                        title,
-                        date,
-                        time
-                     };
+                     oneTimeEvents[eventIndex] = { ...oneTimeEvents[eventIndex], title, date, time };
                 }
             }
+            updateStmt.run(JSON.stringify(oneTimeEvents), streamerId);
         }
         
-        await writeStreamersFile(streamers);
-
         revalidatePath('/creator');
         revalidatePath('/schedules');
 
@@ -326,10 +278,9 @@ export async function updateOneTimeEvents(prevState: FormState, formData: FormDa
     }
 }
 
-
 const AssignStreamerSchema = z.object({
   streamerId: z.string().min(1),
-  userId: z.string(), // Can be empty string to unassign
+  userId: z.string(),
 });
 
 export async function assignStreamerToUser(prevState: FormState, formData: FormData): Promise<FormState> {
@@ -342,16 +293,13 @@ export async function assignStreamerToUser(prevState: FormState, formData: FormD
   const { streamerId, userId } = validatedFields.data;
 
   try {
-    const streamers = await readStreamersFile();
-    const streamerIndex = streamers.findIndex((s) => s.id === streamerId);
+    const newUserId = userId === 'unassign' ? null : userId;
+    const stmt = db.prepare('UPDATE streamers SET discordUserId = ? WHERE id = ?');
+    const result = stmt.run(newUserId, streamerId);
 
-    if (streamerIndex === -1) {
-      return { success: false, message: 'Streamer not found.' };
+    if (result.changes === 0) {
+        return { success: false, message: 'Streamer not found.' };
     }
-
-    streamers[streamerIndex].discordUserId = userId === 'unassign' ? undefined : userId;
-
-    await writeStreamersFile(streamers);
     
     revalidatePath('/admin');
     revalidatePath('/creator');

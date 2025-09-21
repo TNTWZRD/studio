@@ -1,12 +1,9 @@
 'use server';
 
-import { promises as fs } from 'fs';
-import path from 'path';
+import { db } from '@/lib/db';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { Event } from '@/lib/types';
-
-const eventsPath = path.join(process.cwd(), 'src', 'data', 'events.json');
 
 const EventSchema = z.object({
     title: z.string().min(1, 'Title is required.'),
@@ -21,30 +18,10 @@ const UpdateEventSchema = EventSchema.extend({
     id: z.string().min(1),
 });
 
-
 type FormState = {
     success: boolean;
     message: string;
 };
-
-async function readEventsFile(): Promise<Event[]> {
-    try {
-        const fileContent = await fs.readFile(eventsPath, 'utf-8');
-        return JSON.parse(fileContent);
-    } catch (error) {
-        console.error('Error reading events.json:', error);
-        return [];
-    }
-}
-
-async function writeEventsFile(data: Event[]) {
-    try {
-        await fs.writeFile(eventsPath, JSON.stringify(data, null, 2), 'utf-8');
-    } catch (error) {
-        console.error('Error writing to events.json:', error);
-        throw new Error('Could not update the events file.');
-    }
-}
 
 export async function addEvent(prevState: FormState, formData: FormData): Promise<FormState> {
     const validatedFields = AddEventSchema.safeParse(Object.fromEntries(formData.entries()));
@@ -60,22 +37,24 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
     const { title, start, end, details, status } = validatedFields.data;
 
     try {
-        const events = await readEventsFile();
         const newId = 'event-' + Date.now();
-        
-        const newEvent: Event = {
+        const newEvent = {
             id: newId,
             title,
             start,
             end,
             status,
             details,
-            participants: [{ id: 'p-new', name: 'Community' }],
+            participants: JSON.stringify([{ id: 'p-new', name: 'Community' }]),
             image: String(Math.floor(Math.random() * 20) + 1), // Assign a random placeholder image ID
+            scoreboard: '[]',
         };
 
-        events.push(newEvent);
-        await writeEventsFile(events);
+        const stmt = db.prepare(`
+            INSERT INTO events (id, title, start, "end", status, details, participants, image, scoreboard)
+            VALUES (@id, @title, @start, @end, @status, @details, @participants, @image, @scoreboard)
+        `);
+        stmt.run(newEvent);
 
         revalidatePath('/');
         revalidatePath('/admin');
@@ -102,23 +81,17 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
     const { id, title, start, end, details, status } = validatedFields.data;
 
     try {
-        const events = await readEventsFile();
-        const eventIndex = events.findIndex((e) => e.id === id);
+        const stmt = db.prepare(`
+            UPDATE events 
+            SET title = @title, start = @start, "end" = @end, details = @details, status = @status
+            WHERE id = @id
+        `);
+        
+        const result = stmt.run({ id, title, start, end, details, status });
 
-        if (eventIndex === -1) {
+        if (result.changes === 0) {
             return { success: false, message: "Event not found." };
         }
-        
-        events[eventIndex] = {
-            ...events[eventIndex],
-            title,
-            start,
-            end,
-            details,
-            status
-        };
-
-        await writeEventsFile(events);
 
         revalidatePath('/');
         revalidatePath('/admin');
@@ -130,7 +103,6 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
         return { success: false, message: error.message || 'An unexpected error occurred.' };
     }
 }
-
 
 const RemoveEventSchema = z.object({
     id: z.string().min(1)
@@ -149,15 +121,15 @@ export async function removeEvent(prevState: FormState, formData: FormData): Pro
     const { id } = validatedFields.data;
 
     try {
-        const events = await readEventsFile();
-        const eventToRemove = events.find((e) => e.id === id);
+        const getStmt = db.prepare('SELECT title FROM events WHERE id = ?');
+        const eventToRemove = getStmt.get(id) as Event;
 
         if (!eventToRemove) {
             return { success: false, message: "Event not found." };
         }
 
-        const updatedEvents = events.filter((e) => e.id !== id);
-        await writeEventsFile(updatedEvents);
+        const deleteStmt = db.prepare('DELETE FROM events WHERE id = ?');
+        deleteStmt.run(id);
         
         revalidatePath('/');
         revalidatePath('/admin');
@@ -169,4 +141,3 @@ export async function removeEvent(prevState: FormState, formData: FormData): Pro
         return { success: false, message: error.message || 'An unexpected error occurred.' };
     }
 }
-    
