@@ -2,7 +2,6 @@
 import React, { Suspense } from 'react';
 import AboutSection from '@/components/sections/about';
 import EventsSummary from '@/components/sections/events-summary';
-import FeaturedStreams from '@/components/sections/featured-streams';
 import LiveStreamers from '@/components/sections/live-streamers';
 import MediaSummary from '@/components/sections/media-summary';
 import { Card, CardHeader, CardContent, CardFooter } from '@/components/ui/card';
@@ -52,18 +51,16 @@ function PageContent({
     upcomingEvents: Event[],
 }) {
     const liveStreamers = allStreamers.filter((s) => s.isLive);
-    const featuredStreamers = allStreamers.filter((s) => s.featured);
 
     return (
         <div className="flex flex-col">
             <Hero />
             <LiveStreamers initialLiveStreamers={liveStreamers} />
-            <AboutSection />
-            <FeaturedStreams streamers={featuredStreamers} />
+            <MediaSummary media={recentMedia} />
             <Suspense fallback={<EventSummarySkeleton />}>
                 <EventsSummary events={upcomingEvents} />
             </Suspense>
-            <MediaSummary media={recentMedia} />
+            <AboutSection />
         </div>
     );
 }
