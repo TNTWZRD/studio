@@ -11,6 +11,13 @@ const mediaIdsPreprocess = z.preprocess((arg) => {
     return [];
 }, z.array(z.string()));
 
+const imageUrlsPreprocess = z.preprocess((arg) => {
+    if (typeof arg === 'string' && arg.length > 0) return [arg];
+    if (Array.isArray(arg)) return arg.filter(url => typeof url === 'string' && url.length > 0);
+    return [];
+}, z.array(z.string().url().or(z.literal(''))).optional());
+
+
 const EventSchema = z.object({
     title: z.string().min(1, 'Title is required.'),
     start: z.string().min(1, 'Start date is required.'),
@@ -18,7 +25,7 @@ const EventSchema = z.object({
     details: z.string().min(1, 'Details are required.'),
     status: z.enum(['upcoming', 'live', 'past']),
     url: z.string().url().optional().or(z.literal('')),
-    imageUrl: z.string().url().optional().or(z.literal('')),
+    imageUrls: imageUrlsPreprocess,
     media: mediaIdsPreprocess.optional(),
 });
 
@@ -43,10 +50,12 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
         };
     }
     
-    const { title, start, end, details, status, url, imageUrl, media } = validatedFields.data;
+    const { title, start, end, details, status, url, imageUrls, media } = validatedFields.data;
 
     try {
         const newId = 'event-' + Date.now();
+        const primaryImage = imageUrls?.[0] || String(Math.floor(Math.random() * 20) + 1);
+
         const newEvent = {
             id: newId,
             title,
@@ -55,15 +64,16 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
             status,
             details,
             participants: JSON.stringify([{ id: 'p-new', name: 'Community' }]),
-            image: imageUrl || String(Math.floor(Math.random() * 20) + 1), // Use URL or fallback to random placeholder ID
+            image: primaryImage,
             scoreboard: '[]',
             url: url || null,
             media: JSON.stringify(media || []),
+            imageUrls: JSON.stringify(imageUrls || [])
         };
 
         const stmt = db.prepare(`
-            INSERT INTO events (id, title, start, "end", status, details, participants, image, scoreboard, url, media)
-            VALUES (@id, @title, @start, @end, @status, @details, @participants, @image, @scoreboard, @url, @media)
+            INSERT INTO events (id, title, start, "end", status, details, participants, image, scoreboard, url, media, imageUrls)
+            VALUES (@id, @title, @start, @end, @status, @details, @participants, @image, @scoreboard, @url, @media, @imageUrls)
         `);
         stmt.run(newEvent);
 
@@ -89,12 +99,13 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
         };
     }
 
-    const { id, title, start, end, details, status, url, imageUrl, media } = validatedFields.data;
+    const { id, title, start, end, details, status, url, imageUrls, media } = validatedFields.data;
+    const primaryImage = imageUrls?.[0] || String(Math.floor(Math.random() * 20) + 1);
 
     try {
         const stmt = db.prepare(`
             UPDATE events 
-            SET title = @title, start = @start, "end" = @end, details = @details, status = @status, url = @url, image = @image, media = @media
+            SET title = @title, start = @start, "end" = @end, details = @details, status = @status, url = @url, image = @image, media = @media, imageUrls = @imageUrls
             WHERE id = @id
         `);
         
@@ -106,8 +117,9 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
             details, 
             status, 
             url: url || null, 
-            image: imageUrl || String(Math.floor(Math.random() * 20) + 1),
-            media: JSON.stringify(media || []) 
+            image: primaryImage,
+            media: JSON.stringify(media || []),
+            imageUrls: JSON.stringify(imageUrls || []),
         });
 
         if (result.changes === 0) {

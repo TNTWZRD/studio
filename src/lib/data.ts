@@ -131,6 +131,11 @@ function getMediaThumbnail(item: MediaItem): string {
 }
 
 function getEventImageUrl(event: any, associatedMedia: MediaItem[]): string {
+    const imageUrls = event.imageUrls ? JSON.parse(event.imageUrls) : [];
+
+    if (imageUrls.length > 0 && imageUrls[0].startsWith('http')) {
+        return imageUrls[0];
+    }
     if (event.image && event.image.startsWith('http')) {
         return event.image;
     }
@@ -140,6 +145,7 @@ function getEventImageUrl(event: any, associatedMedia: MediaItem[]): string {
     }
     return getPlaceholderImage(event.image || String(Math.floor(Math.random() * 20) + 1)).imageUrl;
 }
+
 
 export async function getEvents(): Promise<Event[]> {
     const allMedia = await getMedia();
@@ -160,6 +166,7 @@ export async function getEvents(): Promise<Event[]> {
             media: associatedMedia.map(m => ({ ...m, thumbnail: getMediaThumbnail(m) })),
             mediaIds: mediaIds,
             url: event.url,
+            imageUrls: event.imageUrls ? JSON.parse(event.imageUrls) : [],
         }
     });
 }
@@ -184,6 +191,7 @@ export async function getEventById(id: string): Promise<Event | undefined> {
         media: associatedMedia.map(m => ({ ...m, thumbnail: getMediaThumbnail(m) })),
         mediaIds: mediaIds,
         url: event.url,
+        imageUrls: event.imageUrls ? JSON.parse(event.imageUrls) : [],
     };
 }
 

@@ -11,6 +11,44 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { Card, CardContent } from '@/components/ui/card';
 import { MediaItem } from '@/lib/types';
 
+function ImageCarousel({ imageUrls, title }: { imageUrls: string[], title: string }) {
+    if (!imageUrls || imageUrls.length === 0) return null;
+
+    if (imageUrls.length === 1) {
+        return (
+             <div className="relative aspect-video w-full overflow-hidden rounded-lg mb-8 shadow-lg bg-secondary">
+                <Image 
+                    src={imageUrls[0]}
+                    alt={title}
+                    fill
+                    className="object-cover"
+                    data-ai-hint="gaming event"
+                />
+            </div>
+        );
+    }
+    return (
+        <Carousel className="w-full mb-8">
+            <CarouselContent>
+                {imageUrls.map((url, index) => (
+                    <CarouselItem key={index}>
+                         <div className="relative aspect-video w-full overflow-hidden rounded-lg shadow-lg bg-secondary">
+                            <Image 
+                                src={url}
+                                alt={`${title} - Image ${index + 1}`}
+                                fill
+                                className="object-cover"
+                                data-ai-hint="gaming event"
+                            />
+                        </div>
+                    </CarouselItem>
+                ))}
+            </CarouselContent>
+            <CarouselPrevious className="left-4" />
+            <CarouselNext className="right-4" />
+        </Carousel>
+    )
+}
 
 function MediaCarousel({ mediaItems }: { mediaItems: MediaItem[] }) {
     return (
@@ -75,21 +113,13 @@ export default async function EventDetailPage({ params }: { params: { id: string
   const endDate = event.end ? new Date(event.end) : null;
   const formattedEndTime = endDate && !isNaN(endDate.getTime()) ? format(endDate, 'p') : null;
 
+  const imageUrls = event.imageUrls?.length ? event.imageUrls : (event.image ? [event.image] : []);
 
   return (
     <div className="container mx-auto py-12">
       <div className="max-w-4xl mx-auto">
-        {event.image && (
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg mb-8 shadow-lg bg-secondary">
-                <Image 
-                    src={event.image}
-                    alt={event.title}
-                    fill
-                    className="object-cover"
-                    data-ai-hint="gaming event"
-                />
-            </div>
-        )}
+        
+        <ImageCarousel imageUrls={imageUrls} title={event.title} />
 
         <Badge variant={event.status === 'live' ? 'destructive' : 'secondary'} className="capitalize mb-2">{event.status}</Badge>
 

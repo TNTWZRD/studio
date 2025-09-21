@@ -1,4 +1,3 @@
-
 'use client';
 
 import { withAdminAuth } from '@/components/auth/with-admin-auth';
@@ -15,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trash2, Edit, Check, ChevronsUpDown, X } from 'lucide-react';
+import { Trash2, Edit, Check, ChevronsUpDown, X, PlusCircle, MinusCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -245,7 +244,8 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
     const [startDate, setStartDate] = useState<Date>();
     const [endDate, setEndDate] = useState<Date>();
     const [selectedMedia, setSelectedMedia] = useState<string[]>([]);
-    
+    const [imageUrls, setImageUrls] = useState(['']);
+
     const [state, formAction] = useActionState(addEvent, {
       success: false,
       message: '',
@@ -263,9 +263,25 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                 setStartDate(undefined);
                 setEndDate(undefined);
                 setSelectedMedia([]);
+                setImageUrls(['']);
             }
         }
     }, [state, toast]);
+
+    const handleImageUrlChange = (index: number, value: string) => {
+        const newUrls = [...imageUrls];
+        newUrls[index] = value;
+        setImageUrls(newUrls);
+    };
+
+    const addImageUrlInput = () => {
+        setImageUrls([...imageUrls, '']);
+    };
+
+    const removeImageUrlInput = (index: number) => {
+        setImageUrls(imageUrls.filter((_, i) => i !== index));
+    };
+
 
     return (
         <Card>
@@ -337,19 +353,37 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                         <Label htmlFor="details">Details</Label>
                         <Textarea id="details" name="details" placeholder="Describe the event..." required />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <div className="space-y-2">
+                        <Label>Image URLs</Label>
                         <div className="space-y-2">
-                            <Label htmlFor="url">Event URL (Optional)</Label>
-                            <Input id="url" name="url" type="url" placeholder="https://example.com/event-page"/>
+                            {imageUrls.map((url, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <Input 
+                                        name="imageUrls"
+                                        type="url"
+                                        placeholder="https://example.com/image.png"
+                                        value={url}
+                                        onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                                    />
+                                    <Button variant="ghost" size="icon" type="button" onClick={() => removeImageUrlInput(index)} disabled={imageUrls.length === 1}>
+                                        <MinusCircle className="text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
                         </div>
-                         <div className="space-y-2">
-                            <Label htmlFor="imageUrl">Banner Image URL (Optional)</Label>
-                            <Input id="imageUrl" name="imageUrl" type="url" placeholder="https://example.com/image.png"/>
-                        </div>
+                         <Button variant="outline" size="sm" type="button" onClick={addImageUrlInput}>
+                            <PlusCircle className="mr-2"/> Add Another Image
+                        </Button>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Associated Media (Optional)</Label>
+                        <Label htmlFor="url">External Event URL (Optional)</Label>
+                        <Input id="url" name="url" type="url" placeholder="https://example.com/event-page"/>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Associated Video Media (Optional)</Label>
                         <MultiSelectMedia value={selectedMedia} onChange={setSelectedMedia} allMedia={allMedia} />
                         {selectedMedia.map(id => <input key={id} type="hidden" name="media" value={id} />)}
                     </div>
@@ -381,15 +415,26 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
     const [startDate, setStartDate] = useState<Date | undefined>(new Date(event.start));
     const [endDate, setEndDate] = useState<Date | undefined>(event.end ? new Date(event.end) : undefined);
     const [selectedMedia, setSelectedMedia] = useState<string[]>(event.mediaIds || []);
-    
-    // Check if the image is a placeholder ID or a URL
-    const isImageUrl = event.image && event.image.startsWith('http');
-    const defaultImageUrl = isImageUrl ? event.image : '';
+    const [imageUrls, setImageUrls] = useState(event.imageUrls?.length ? event.imageUrls : ['']);
 
     const [state, formAction] = useActionState(updateEvent, {
         success: false,
         message: '',
     });
+
+    const handleImageUrlChange = (index: number, value: string) => {
+        const newUrls = [...imageUrls];
+        newUrls[index] = value;
+        setImageUrls(newUrls);
+    };
+
+    const addImageUrlInput = () => {
+        setImageUrls([...imageUrls, '']);
+    };
+
+    const removeImageUrlInput = (index: number) => {
+        setImageUrls(imageUrls.filter((_, i) => i !== index));
+    };
 
      useEffect(() => {
         if (state.message) {
@@ -483,19 +528,37 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
                         <Label htmlFor="details">Details</Label>
                         <Textarea id="details" name="details" defaultValue={event.details} required />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   
+                    <div className="space-y-2">
+                        <Label>Image URLs</Label>
                         <div className="space-y-2">
-                            <Label htmlFor="url">Event URL (Optional)</Label>
-                            <Input id="url" name="url" type="url" placeholder="https://example.com/event-page" defaultValue={event.url}/>
+                            {imageUrls.map((url, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <Input
+                                        name="imageUrls"
+                                        type="url"
+                                        placeholder="https://example.com/image.png"
+                                        value={url}
+                                        onChange={(e) => handleImageUrlChange(index, e.target.value)}
+                                    />
+                                    <Button variant="ghost" size="icon" type="button" onClick={() => removeImageUrlInput(index)} disabled={imageUrls.length === 1 && index === 0 && !imageUrls[0]}>
+                                        <MinusCircle className="text-destructive" />
+                                    </Button>
+                                </div>
+                            ))}
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="imageUrl">Banner Image URL (Optional)</Label>
-                            <Input id="imageUrl" name="imageUrl" type="url" placeholder="Leave blank to use media thumbnail" defaultValue={defaultImageUrl}/>
-                        </div>
+                        <Button variant="outline" size="sm" type="button" onClick={addImageUrlInput}>
+                            <PlusCircle className="mr-2"/> Add Another Image
+                        </Button>
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Associated Media (Optional)</Label>
+                        <Label htmlFor="url">External Event URL (Optional)</Label>
+                        <Input id="url" name="url" type="url" placeholder="https://example.com/event-page" defaultValue={event.url}/>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Associated Video Media (Optional)</Label>
                         <MultiSelectMedia value={selectedMedia} onChange={setSelectedMedia} allMedia={allMedia} />
                         {selectedMedia.map(id => <input key={id} type="hidden" name="media" value={id} />)}
                     </div>

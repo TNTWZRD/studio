@@ -33,6 +33,7 @@ export interface Event {
   url?: string;
   media?: MediaItem[];
   mediaIds?: string[];
+  imageUrls?: string[];
 }
 
 
