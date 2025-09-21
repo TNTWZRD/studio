@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from './db';
@@ -130,19 +131,21 @@ function getMediaThumbnail(item: MediaItem): string {
     return item.thumbnail && item.thumbnail.startsWith('http') ? item.thumbnail : getPlaceholderImage(item.thumbnail).imageUrl;
 }
 
-function getEventImageUrl(event: any, associatedMedia: MediaItem[]): string {
-    const imageUrls = event.imageUrls ? JSON.parse(event.imageUrls) : [];
-
-    if (imageUrls.length > 0 && imageUrls[0].startsWith('http')) {
-        return imageUrls[0];
+function getEventImageUrl(event: Event): string {
+    // Prioritize the first entry in the imageUrls array if it exists and is valid
+    if (event.imageUrls && event.imageUrls.length > 0) {
+        const firstUrl = event.imageUrls[0];
+        if (firstUrl && (firstUrl.startsWith('http') || firstUrl.startsWith('/'))) {
+            return firstUrl;
+        }
     }
-    if (event.image && event.image.startsWith('http')) {
+
+    // Fallback to the legacy `image` field
+    if (event.image && (event.image.startsWith('http') || event.image.startsWith('/'))) {
         return event.image;
     }
-    if (associatedMedia.length > 0) {
-        const randomIndex = Math.floor(Math.random() * associatedMedia.length);
-        return getMediaThumbnail(associatedMedia[randomIndex]);
-    }
+
+    // If no valid URL is found, use a placeholder
     return getPlaceholderImage(event.image || String(Math.floor(Math.random() * 20) + 1)).imageUrl;
 }
 
@@ -157,17 +160,23 @@ export async function getEvents(): Promise<Event[]> {
     return dbEvents.map(event => {
         const mediaIds = event.media ? JSON.parse(event.media) : [];
         const associatedMedia = mediaIds.map((id: string) => mediaMap.get(id)).filter(Boolean) as MediaItem[];
+        const rawImageUrls = event.imageUrls ? JSON.parse(event.imageUrls) : [];
+        const finalImageUrls = rawImageUrls.filter((url:string) => url && (url.startsWith('http') || url.startsWith('/')))
         
-        return {
+        const eventWithTypes = {
             ...event,
-            image: getEventImageUrl(event, associatedMedia),
             participants: event.participants ? JSON.parse(event.participants) : [],
             scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
             media: associatedMedia.map(m => ({ ...m, thumbnail: getMediaThumbnail(m) })),
             mediaIds: mediaIds,
             url: event.url,
-            imageUrls: event.imageUrls ? JSON.parse(event.imageUrls) : [],
-        }
+            imageUrls: finalImageUrls
+        };
+        
+        return {
+            ...eventWithTypes,
+            image: getEventImageUrl(eventWithTypes),
+        };
     });
 }
 
@@ -182,16 +191,22 @@ export async function getEventById(id: string): Promise<Event | undefined> {
     
     const mediaIds = event.media ? JSON.parse(event.media) : [];
     const associatedMedia = mediaIds.map((id: string) => mediaMap.get(id)).filter(Boolean) as MediaItem[];
-        
-    return {
+    const rawImageUrls = event.imageUrls ? JSON.parse(event.imageUrls) : [];
+    const finalImageUrls = rawImageUrls.filter((url: string) => url && (url.startsWith('http') || url.startsWith('/')));
+
+    const eventWithTypes = {
         ...event,
-        image: getEventImageUrl(event, associatedMedia),
         participants: event.participants ? JSON.parse(event.participants) : [],
         scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
         media: associatedMedia.map(m => ({ ...m, thumbnail: getMediaThumbnail(m) })),
         mediaIds: mediaIds,
         url: event.url,
-        imageUrls: event.imageUrls ? JSON.parse(event.imageUrls) : [],
+        imageUrls: finalImageUrls,
+    };
+        
+    return {
+        ...eventWithTypes,
+        image: getEventImageUrl(eventWithTypes),
     };
 }
 
