@@ -1,6 +1,8 @@
+
 'use server';
 
 import { getTwitchStreamStatus } from '@/lib/twitch';
+import { getYouTubeStreamStatus } from '@/lib/youtube';
 import type { Streamer } from '@/lib/types';
 
 // This interface matches the output the component expects
@@ -15,29 +17,39 @@ export interface LiveStreamerInfo {
   thumbnailUrl: string;
 }
 
+function getLoginFromUrl(platform: 'twitch' | 'youtube', url: string): string {
+    try {
+        const urlObj = new URL(url);
+        const pathParts = urlObj.pathname.split('/').filter(p => p);
+        let login = pathParts[pathParts.length - 1];
+
+        if (platform === 'youtube' && login.startsWith('@')) {
+            login = login.substring(1);
+        }
+        
+        return login;
+    } catch {
+        return '';
+    }
+}
+
+
 export async function assessStreamers(streamers: Streamer[]): Promise<LiveStreamerInfo[]> {
   const twitchStreamers = streamers.filter(s => s.platform.toLowerCase() === 'twitch');
+  const youtubeStreamers = streamers.filter(s => s.platform.toLowerCase() === 'youtube');
   
-  // For now, we only have the Twitch API implemented.
-  // We'll also pass through any manually set `isLive: true` non-Twitch streamers.
-
   try {
-    const twitchUsernames = twitchStreamers.map(s => {
-        try {
-            const url = new URL(s.platformUrl);
-            const pathParts = url.pathname.split('/').filter(p => p);
-            return pathParts[pathParts.length-1];
-        } catch {
-            return '';
-        }
-    }).filter(Boolean);
+    const twitchLogins = twitchStreamers.map(s => getLoginFromUrl('twitch', s.platformUrl)).filter(Boolean);
+    const youtubeChannelUrls = youtubeStreamers.map(s => s.platformUrl);
 
-    const liveTwitchStreams = twitchUsernames.length > 0 ? await getTwitchStreamStatus(twitchUsernames) : [];
+    const [liveTwitchStreams, liveYouTubeStreams] = await Promise.all([
+        twitchLogins.length > 0 ? getTwitchStreamStatus(twitchLogins) : Promise.resolve([]),
+        youtubeChannelUrls.length > 0 ? getYouTubeStreamStatus(youtubeChannelUrls) : Promise.resolve([])
+    ]);
 
-    const liveStreamers: LiveStreamerInfo[] = twitchStreamers
+    const liveTwitchStreamers: LiveStreamerInfo[] = twitchStreamers
       .map(streamer => {
-        const url = new URL(streamer.platformUrl);
-        const login = url.pathname.split('/').filter(p => p)[0];
+        const login = getLoginFromUrl('twitch', streamer.platformUrl);
         const liveInfo = liveTwitchStreams.find(l => l.user_login.toLowerCase() === login.toLowerCase());
 
         if (liveInfo) {
@@ -55,13 +67,32 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
         return null;
       })
       .filter((s): s is LiveStreamerInfo => s !== null);
-      
-    // Include manually set non-Twitch live streamers as a fallback
+    
+    const liveYouTubeStreamers: LiveStreamerInfo[] = youtubeStreamers
+        .map(streamer => {
+            const liveInfo = liveYouTubeStreams.find(l => l.channelUrl.toLowerCase() === streamer.platformUrl.toLowerCase());
+            if (liveInfo) {
+                return {
+                    name: streamer.name,
+                    platform: streamer.platform,
+                    platformUrl: streamer.platformUrl,
+                    avatar: streamer.avatar,
+                    isLive: true,
+                    title: liveInfo.title,
+                    game: 'Unknown Game', // YouTube API for live streams doesn't provide game easily
+                    thumbnailUrl: liveInfo.thumbnailUrl,
+                };
+            }
+            return null;
+        })
+        .filter((s): s is LiveStreamerInfo => s !== null);
+
+    // Include manually set non-Twitch/non-YouTube live streamers as a fallback
     const manualLive = streamers
-      .filter(s => s.isLive && s.platform.toLowerCase() !== 'twitch')
+      .filter(s => s.isLive && !['twitch', 'youtube'].includes(s.platform.toLowerCase()))
       .map(s => ({ ...s, game: s.game || 'Unknown Game', thumbnailUrl: s.avatar }));
 
-    return [...liveStreamers, ...manualLive];
+    return [...liveTwitchStreamers, ...liveYouTubeStreamers, ...manualLive];
 
   } catch (error) {
     console.error('Error assessing streamer info:', error);
