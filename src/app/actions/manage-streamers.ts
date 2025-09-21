@@ -17,6 +17,11 @@ const AddStreamerSchema = z.object({
     discordUserId: z.string().optional(), // Added for creator self-service
 });
 
+const UpdateStreamerSchema = AddStreamerSchema.extend({
+    id: z.string().min(1),
+});
+
+
 type FormState = {
     success: boolean;
     message: string;
@@ -86,6 +91,51 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
         
         return { success: true, message: `${name} has been added successfully.` };
 
+    } catch (error: any) {
+        return { success: false, message: error.message || 'An unexpected error occurred.' };
+    }
+}
+
+export async function updateStreamer(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validatedFields = UpdateStreamerSchema.safeParse(Object.fromEntries(formData.entries()));
+    if (!validatedFields.success) {
+        const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
+        return {
+            success: false,
+            message: firstError || 'Invalid data provided.',
+        };
+    }
+
+    const { id, name, platform, platformUrl } = validatedFields.data;
+
+    try {
+        const streamers = await readStreamersFile();
+        const streamerIndex = streamers.findIndex(s => s.id === id);
+
+        if (streamerIndex === -1) {
+            return { success: false, message: "Streamer not found." };
+        }
+
+        // Prevent duplicate channel URLs, excluding the current streamer
+        if (streamers.some(s => s.id !== id && s.platformUrl.toLowerCase() === platformUrl.toLowerCase())) {
+            return { success: false, message: 'This channel URL is already in use by another streamer.' };
+        }
+
+        streamers[streamerIndex] = {
+            ...streamers[streamerIndex],
+            name,
+            platform,
+            platformUrl,
+        };
+
+        await writeStreamersFile(streamers);
+
+        revalidatePath('/');
+        revalidatePath('/admin');
+        revalidatePath('/creator');
+        revalidatePath('/schedules');
+
+        return { success: true, message: `Streamer "${name}" updated successfully.` };
     } catch (error: any) {
         return { success: false, message: error.message || 'An unexpected error occurred.' };
     }

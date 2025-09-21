@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Event, Streamer } from '@/lib/types';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { addStreamer, removeStreamer, assignStreamerToUser } from '../actions/manage-streamers';
+import { addStreamer, removeStreamer, assignStreamerToUser, updateStreamer } from '../actions/manage-streamers';
 import { addEvent, removeEvent, updateEvent } from '../actions/manage-events';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -94,6 +94,79 @@ function AddStreamerForm() {
     );
 }
 
+function EditStreamerDialog({ streamer }: { streamer: Streamer }) {
+    const { toast } = useToast();
+    const [open, setOpen] = useState(false);
+    const [state, formAction] = useActionState(updateStreamer, {
+        success: false,
+        message: '',
+    });
+
+     useEffect(() => {
+        if (state.message) {
+            toast({
+                title: state.success ? 'Success!' : 'Error',
+                description: state.message,
+                variant: state.success ? 'default' : 'destructive',
+            });
+            if (state.success) {
+                setOpen(false);
+            }
+        }
+    }, [state, toast]);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Edit Streamer</span>
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Streamer</DialogTitle>
+                    <DialogDescription>
+                        Make changes to the streamer's profile here. Click save when you're done.
+                    </DialogDescription>
+                </DialogHeader>
+                <form action={formAction} className="space-y-4">
+                    <input type="hidden" name="id" value={streamer.id} />
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Streamer Name</Label>
+                        <Input id="name" name="name" defaultValue={streamer.name} required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="platform">Platform</Label>
+                        <Select name="platform" defaultValue={streamer.platform} required>
+                            <SelectTrigger id="platform">
+                                <SelectValue placeholder="Select platform" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="twitch">Twitch</SelectItem>
+                                <SelectItem value="youtube">YouTube</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="platformUrl">Channel URL</Label>
+                        <Input id="platformUrl" name="platformUrl" type="url" defaultValue={streamer.platformUrl} required />
+                    </div>
+
+                     <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="secondary">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <SubmitButton>Save Changes</SubmitButton>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function RemoveStreamerForm({ streamerId }: { streamerId: string }) {
     const { toast } = useToast();
      const [state, formAction] = useActionState(removeStreamer, {
@@ -127,7 +200,7 @@ function StreamerList({ streamers }: { streamers: Streamer[] }) {
          <Card>
             <CardHeader>
                 <CardTitle>Manage Streamers</CardTitle>
-                <CardDescription>Add or remove streamers from the homepage.</CardDescription>
+                <CardDescription>Add, edit, or remove streamers from the homepage.</CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
@@ -150,7 +223,8 @@ function StreamerList({ streamers }: { streamers: Streamer[] }) {
                                 </TableCell>
                                 <TableCell className="font-medium">{streamer.name}</TableCell>
                                 <TableCell className="capitalize">{streamer.platform}</TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="text-right flex items-center justify-end">
+                                    <EditStreamerDialog streamer={streamer} />
                                     <RemoveStreamerForm streamerId={streamer.id} />
                                 </TableCell>
                             </TableRow>
