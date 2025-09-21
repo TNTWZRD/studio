@@ -25,7 +25,7 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 };
 
 export default function LiveStreamers({ initialLiveStreamers }: { initialLiveStreamers: Streamer[] }) {
-  const [assessedStreamers, setAssessedStreamers] = useState<(Streamer | EnhanceLiveStreamerStripWithAIAssessmentOutput)[]>([]);
+  const [assessedStreamers, setAssessedStreamers] = useState<(Streamer | EnhanceLiveStreamerStripWithAIAssessmentOutput)[]>(initialLiveStreamers);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -68,9 +68,11 @@ export default function LiveStreamers({ initialLiveStreamers }: { initialLiveStr
     }
   }, [initialLiveStreamers, toast]);
 
-  if (assessedStreamers.length === 0 && !loading) {
+  if (initialLiveStreamers.length === 0) {
     return null;
   }
+
+  const streamersToDisplay = assessedStreamers.length > 0 ? assessedStreamers : initialLiveStreamers;
 
   return (
     <section className="py-16 sm:py-24 bg-primary text-primary-foreground">
@@ -81,9 +83,9 @@ export default function LiveStreamers({ initialLiveStreamers }: { initialLiveStr
                 Check out who from the community is streaming right now.
             </p>
         </div>
-        {loading ? (
+        {loading && streamersToDisplay.length === 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, i) => (
+                {[...Array(initialLiveStreamers.length || 3)].map((_, i) => (
                     <Card key={i} className="bg-card/10 text-primary-foreground border-border/20">
                         <CardContent className="p-4">
                             <div className="flex items-center space-x-4">
@@ -100,7 +102,7 @@ export default function LiveStreamers({ initialLiveStreamers }: { initialLiveStr
             </div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {assessedStreamers.map((streamer) => (
+            {streamersToDisplay.map((streamer) => (
                 <a key={streamer.name} href={streamer.platformUrl} target="_blank" rel="noopener noreferrer" className="block group">
                 <Card className="bg-card/10 text-primary-foreground border-border/20 hover:bg-card/20 transition-colors h-full">
                     <CardContent className="p-4">
