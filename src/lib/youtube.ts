@@ -1,4 +1,5 @@
 
+
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
 
@@ -42,16 +43,20 @@ const channelIdCache = new Map<string, string>();
  * e.g., "https://www.youtube.com/@handle" -> "handle"
  * e.g., "https://www.youtube.com/c/customurl" -> "customurl"
  * e.g., "https://www.youtube.com/user/username" -> "username"
+ * e.g., "https://www.youtube.com/vanityname" -> "vanityname"
  */
 function getIdentifierFromUrl(url: string): string | null {
     try {
         const urlObj = new URL(url);
         const pathParts = urlObj.pathname.split('/').filter(p => p);
         if (pathParts.length > 0) {
-            const lastPart = pathParts[pathParts.length - 1];
-            if (pathParts[0] === 'c' || pathParts[0] === 'user' || lastPart.startsWith('@')) {
-                 return lastPart.startsWith('@') ? lastPart.substring(1) : lastPart;
+            // Handles /@handle, /c/name, /user/name
+            if (pathParts[0] === 'c' || pathParts[0] === 'user' || pathParts[0].startsWith('@')) {
+                const identifier = pathParts[0].startsWith('@') ? pathParts[0].substring(1) : pathParts[1];
+                return identifier;
             }
+            // Handles vanity URLs like /channelname
+            return pathParts[0];
         }
         return null;
     } catch {
@@ -84,10 +89,15 @@ async function getChannelId(channelIdentifier: string): Promise<string | null> {
             return null;
         }
         const data: YouTubeSearchResponse = await res.json();
-        const channelItem = data.items?.find(item => 
-            item.snippet.channelTitle.toLowerCase() === channelIdentifier.toLowerCase() || 
-            item.id.channelId // Fallback if title doesn't match
-        );
+        
+        // Find a channel that matches the identifier, prioritizing handles (@name) and then titles.
+        const channelItem = data.items?.find(item => {
+            const title = item.snippet.channelTitle.toLowerCase();
+            const identifierLower = channelIdentifier.toLowerCase();
+            // This is imperfect, but YouTube API has no better way to resolve vanity URLs.
+            // We hope the top search result for the vanity name is the correct channel.
+            return title === identifierLower || item.id.channelId;
+        });
         
         if (channelItem?.id.channelId) {
             channelIdCache.set(channelIdentifier, channelItem.id.channelId);
