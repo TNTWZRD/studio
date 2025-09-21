@@ -56,14 +56,16 @@ export default function LiveStreamers({ allStreamers }: { allStreamers: Streamer
             description: "There was an issue checking live statuses.",
             variant: "destructive"
         })
-        setAssessedStreamers([]); // On error, assume no one is live
+        // Fallback to manually set live streamers on error
+        setAssessedStreamers(allStreamers.filter(s => s.isLive).map(s => ({...s, game: s.game || 'Unknown'})));
       } finally {
         setLoading(false);
       }
     };
 
     assessAllStreamers();
-  }, [allStreamers, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allStreamers]);
 
   if (loading) {
      return (
@@ -111,7 +113,7 @@ export default function LiveStreamers({ allStreamers }: { allStreamers: Streamer
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {assessedStreamers.map((streamer) => (
-            <a key={streamer.name} href={streamer.platformUrl} target="_blank" rel="noopener noreferrer" className="block group">
+            <a key={`${streamer.name}-${streamer.platformUrl}`} href={streamer.platformUrl} target="_blank" rel="noopener noreferrer" className="block group">
             <Card className="bg-card/10 text-primary-foreground border-border/20 hover:bg-card/20 transition-colors h-full">
                 <CardContent className="p-4">
                 <div className="flex items-start space-x-4">
