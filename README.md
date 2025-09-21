@@ -20,53 +20,91 @@ You can start editing the page by modifying `src/app/page.tsx`. The page auto-up
 
 This site's content is managed through simple JSON files located in the `src/data/` directory. To update the site, edit the relevant file and commit the changes to your repository.
 
-### Configuration
+# Team AMW
 
-- **File**: `src/data/config.json`
-- **Purpose**: Holds site-wide settings.
-- **Fields**:
-  - `discordInviteUrl`: The full URL for your Discord server invitation link.
+A Next.js homepage for the Team AMW ("Americas Most Wanted") community. The site showcases live streamers, scheduled and past events, and media for the community. It includes a small admin UI and server actions to manage content.
 
-### Streamers
+This README highlights where important code lives, how to run the app locally, and how to manage seeded content.
 
-- **File**: `src/data/streams.json`
-- **Purpose**: Manages the list of community members and their streaming information.
-- **Fields**:
-  - `id`: A unique identifier for the streamer.
-  - `name`: The streamer's display name.
-  - `platform`: The streaming platform (e.g., "twitch", "youtube").
-  - `platformUrl`: A direct link to the streamer's channel.
-  - `avatar`: An ID that corresponds to an image in `src/lib/placeholder-images.json`.
-  - `isLive`: A boolean (`true` or `false`) to indicate if the streamer is currently live. This is manually updated for now.
-  - `title`: The current or a recent stream title.
-  - `game`: The game being played.
-  - `featured`: (Optional) A boolean (`true` or `false`). If `true`, the streamer will appear in the "Featured Streams" section on the homepage.
+## Quick links
+- App entry: `src/app/page.tsx`
+- Root layout: `src/app/layout.tsx`
+- Admin UI: `src/app/admin/page-content.tsx`
+- DB logic & initialization: `src/lib/db.ts` (see `initializeDb`)
+- Firebase Admin SDK: `src/lib/firebase-admin.ts`
+- Client Firebase config: `src/lib/firebase.ts`
+- Toaster + hook: `src/components/ui/toaster.tsx` and `src/hooks/use-toast.ts`
+- Placeholder images: `src/lib/placeholder-images.ts`
+- Important server actions: `src/app/actions/manage-events.ts`, `src/app/actions/manage-media.ts`, `src/app/actions/manage-streamers.ts`
 
-### Events
+## Getting started
 
-- **File**: `src/data/events.json`
-- **Purpose**: Lists all community events (past, present, and future).
-- **Fields**:
-  - `id`: A unique identifier for the event.
-  - `title`: The name of the event.
-  - `start`, `end`: The start and end times of the event in ISO 8601 format (e.g., `2025-09-20T19:00:00Z`).
-  - `status`: The current state of the event: `"upcoming"`, `"live"`, or `"past"`.
-  - `details`: A description of the event.
-  - `image`: An ID that corresponds to an image in `src/lib/placeholder-images.json`.
-  - `participants`: An array of teams or players involved.
-  - `scoreboard`: (For "past" events only) An array of results. Each entry includes `rank`, `name`, `score`, and optional `notes`.
+1. Install dependencies:
 
-### Media
+```bash
+npm install
+```
 
-- **File**: `src/data/media.json`
-- **Purpose**: A gallery of community-related videos, clips, and guides.
-- **Fields**:
-  - `id`: A unique identifier for the media item.
-  - `type`: The type of media: `"video"`, `"clip"`, `"stream"`, or `"guide"`.
-  - `title`: The title of the media item.
-  - `thumbnail`: An ID that corresponds to an image in `src/lib/placeholder-images.json`.
-  - `url`: A direct link to the media content.
-  - `creator`: The name of the person or group who created the content.
-  - `date`: The publication date in `YYYY-MM-DD` format.
+2. Copy environment variables (create a `.env` based on your environment):
 
-After editing any of these files, save your changes and commit them to your Git repository to deploy the updates.
+```bash
+copy .env.example .env
+```
+
+Open `.env` in your editor and fill in Firebase credentials and any platform keys used by the project. See `src/lib/firebase-admin.ts` and `src/lib/firebase.ts` for the expected variables.
+
+3. Run the development server:
+
+```bash
+npm run dev
+```
+
+By default this project historically used port 9002 in dev previews; check the `npm run dev` output for the port if different. Open the URL printed by the dev server in your browser.
+
+## Project structure (high level)
+
+- `src/app` — Next.js app routes and server components
+  - `src/app/page.tsx` — Home page
+  - `src/app/layout.tsx` — Global layout (Toaster is mounted here)
+  - `src/app/admin` — Admin pages and UIs
+- `src/components` — Shared UI components and primitives (toast, dialog, cards, inputs, etc.)
+- `src/lib` — Server utilities and data layer (DB, Firebase integration, utilities)
+- `src/data` — JSON seed data used for initial DB population (events, streams, media, config)
+
+## Managing content
+
+On first run the app may initialize `amwhub.db` from the JSON files in `src/data/`. Edit the JSON files to update seeded content before the first run, or use the Admin UI to make changes at runtime.
+
+Key data files:
+- `src/data/config.json` — site settings (e.g., `discordInviteUrl`)
+- `src/data/streams.json` — streamer entries (id, name, platform, avatar id, isLive, title, featured, etc.)
+- `src/data/events.json` — events (id, title, start/end ISO, status, details, participants)
+- `src/data/media.json` — media entries (id, type, title, url, thumbnail id, creator, date)
+
+Database file: `amwhub.db` at the repo root. See `src/lib/db.ts` for migration and initialization code.
+
+## Firebase
+
+- Server (admin) setup: `src/lib/firebase-admin.ts` — used for server-side auth and admin operations.
+- Client setup: `src/lib/firebase.ts` — client-side Firebase initialization.
+
+Make sure to provide the Firebase service account or environment variables as shown in `.env.example`. The admin initializer handles escaped newlines in private keys.
+
+## Developer notes
+
+- Toasts: `Toaster` is mounted in the global layout and the `useToast` hook provides a small API for messages.
+- UI primitives live under `src/components/ui/` and are reusable across pages.
+- Remote image domains are configured in `next.config.ts`.
+
+## AI helpers (dev)
+
+There are a couple of small developer tools under `src/ai/` used for local generation and experiments (`src/ai/genkit.ts`, `src/ai/dev.ts`). They are optional and not required to run the app.
+
+## Contributing
+
+- Keep TypeScript types clean and run lint/type checks before opening PRs when possible.
+- Update `src/data/*` to modify seeded content or use the Admin UI to change data at runtime.
+
+## License
+
+See repository root for license details.
