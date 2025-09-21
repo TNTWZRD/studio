@@ -15,7 +15,7 @@ export default function AboutSection() {
                     </CardHeader>
                     <CardContent className="space-y-4 text-lg text-muted-foreground">
                         <p>
-                            AMW is a collective of passionate gamers, creators, and competitors dedicated to fostering a positive and engaging community. We started as a small group of friends and have grown into a hub for everything gaming-related. Whether you're looking to find teammates, watch entertaining streams, or compete in events, you've come to the right place.
+                            Team AMW (Americas Most Wanted) is a collective of passionate gamers, creators, and competitors dedicated to fostering a positive and engaging community. We started as a small group of friends and have grown into a hub for everything gaming-related. Whether you're looking to find teammates, watch entertaining streams, or compete in events, you've come to the right place.
                         </p>
                         <p>
                             Our members stream a variety of games, host community nights, and participate in tournaments. We believe in sportsmanship, mutual respect, and the shared joy of gaming.

@@ -13,7 +13,7 @@ export function Logo({ className }: { className?: string }) {
       >
         <path d="M10 90 L 30 10 L 50 90 L 70 10 L 90 90" stroke="currentColor" strokeWidth="12" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="text-xl font-bold tracking-tighter">AMW Hub</span>
+      <span className="text-xl font-bold tracking-tighter">Team AMW</span>
     </div>
   );
 }

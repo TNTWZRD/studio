@@ -40,7 +40,7 @@ export default function Hero() {
             The Center of Your Gaming Community
           </h1>
           <p className="max-w-2xl mx-auto text-lg text-primary-foreground/80 md:text-xl">
-            Welcome to AMW Hub. Discover live streams, join events, and connect with a passionate community of gamers.
+            Welcome to Team AMW (Americas Most Wanted). Discover live streams, join events, and connect with a passionate community of gamers.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {config && (

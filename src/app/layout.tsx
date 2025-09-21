@@ -7,8 +7,8 @@ import Footer from '@/components/layout/footer';
 import { Providers } from './providers';
 
 export const metadata: Metadata = {
-  title: 'AMW Hub - The Center of Your Gaming Community',
-  description: 'Join the AMW community. Find live streams, events, media, and connect with fellow gamers.',
+  title: 'Team AMW - Americas Most Wanted',
+  description: 'Join the Team AMW community (Americas Most Wanted). Find live streams, events, media, and connect with fellow gamers.',
 };
 
 export default function RootLayout({

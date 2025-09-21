@@ -10,7 +10,7 @@ export default function Footer() {
         <div className="flex flex-col items-center gap-4 sm:items-start">
           <Logo />
           <p className="text-sm text-muted-foreground">
-            &copy; {year} AMW Hub. All rights reserved.
+            &copy; {year} Team AMW. All rights reserved.
           </p>
         </div>
         <div className="flex items-center gap-4">
