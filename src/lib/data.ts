@@ -1,3 +1,4 @@
+
 'use server';
 
 import { promises as fs } from 'fs';
@@ -39,11 +40,7 @@ const getImage = (id: string): ImagePlaceholder => {
 
 
 export async function getStreamers(): Promise<Streamer[]> {
-    const streamsData = await readJsonFile<any[]>('src/data/streams.json');
-    return streamsData.map(streamer => ({
-        ...streamer,
-        avatar: getImage(streamer.avatar).imageUrl
-    }));
+    return await readJsonFile<Streamer[]>('src/data/streams.json');
 }
 
 export async function getEvents(): Promise<Event[]> {
@@ -72,5 +69,3 @@ export async function getMedia(): Promise<MediaItem[]> {
 export async function getConfig(): Promise<Config> {
     return readJsonFile<Config>('src/data/config.json');
 }
-
-    

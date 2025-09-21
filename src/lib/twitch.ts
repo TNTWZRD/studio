@@ -26,11 +26,22 @@ interface TwitchStream {
   is_mature: boolean;
 }
 
+interface TwitchUser {
+    id: string;
+    login: string;
+    display_name: string;
+    profile_image_url: string;
+}
+
 interface TwitchStreamsResponse {
     data: TwitchStream[];
     pagination: {
         cursor?: string;
     }
+}
+
+interface TwitchUsersResponse {
+    data: TwitchUser[];
 }
 
 async function getAccessToken(): Promise<string> {
@@ -69,6 +80,32 @@ async function getAccessToken(): Promise<string> {
     tokenExpiresAt = now + (data.expires_in - 60) * 1000;
     
     return accessToken;
+}
+
+export async function getTwitchUsers(userLogins: string[]): Promise<TwitchUser[]> {
+    if (userLogins.length === 0) return [];
+    
+    const token = await getAccessToken();
+    const clientId = process.env.TWITCH_CLIENT_ID;
+
+    if (!clientId) throw new Error('Twitch client ID is not configured.');
+
+    const params = new URLSearchParams();
+    userLogins.forEach(login => params.append('login', login));
+
+    const url = `https://api.twitch.tv/helix/users?${params.toString()}`;
+
+    const response = await fetch(url, {
+        headers: { 'Client-ID': clientId, 'Authorization': `Bearer ${token}` },
+        next: { revalidate: 3600 } // Cache user profiles for 1 hour
+    });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Failed to fetch Twitch users: ${response.status} ${errorBody}`);
+    }
+    const result: TwitchUsersResponse = await response.json();
+    return result.data;
 }
 
 export async function getTwitchStreamStatus(userLogins: string[]): Promise<TwitchStream[]> {

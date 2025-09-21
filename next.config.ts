@@ -39,6 +39,12 @@ const nextConfig: NextConfig = {
         hostname: 'static-cdn.jtvnw.net',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'yt3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

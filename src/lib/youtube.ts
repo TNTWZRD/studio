@@ -1,6 +1,4 @@
 
-
-
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3';
 
@@ -29,6 +27,23 @@ interface YouTubeSearchResponse {
     items: YouTubeSearchItem[];
 }
 
+interface YouTubeChannel {
+    id: string;
+    snippet: {
+        title: string;
+        thumbnails: {
+            default: { url: string };
+            medium: { url: string };
+            high: { url: string };
+        };
+    };
+}
+
+interface YouTubeChannelsResponse {
+    items: YouTubeChannel[];
+}
+
+
 export interface LiveYouTubeStream {
     channelUrl: string;
     videoId: string;
@@ -36,8 +51,15 @@ export interface LiveYouTubeStream {
     thumbnailUrl: string;
 }
 
+export interface YouTubeChannelDetails {
+    channelId: string;
+    profileImageUrl: string;
+}
+
 // A simple in-memory cache to store channel ID lookups to avoid redundant API calls.
 const channelIdCache = new Map<string, string>();
+const channelDetailsCache = new Map<string, YouTubeChannelDetails>();
+
 
 /**
  * Extracts the custom channel name or handle from a YouTube channel URL.
@@ -56,9 +78,12 @@ function getIdentifierFromUrl(url: string): string | null {
                  // For /@handle, use pathParts[0] (e.g. '@handle') -> 'handle'
                  // For /c/name or /user/name, use pathParts[1]
                 const identifier = pathParts[0].startsWith('@') ? pathParts[0].substring(1) : pathParts[1];
-                return identifier;
+                if(identifier) return identifier;
             }
-            // Handles vanity URLs like /channelname
+            // Handles vanity URLs like /channelname or channel IDs like /channel/UC...
+            if(pathParts[0] === 'channel' && pathParts.length > 1) {
+                return pathParts[1];
+            }
             return pathParts[0];
         }
         return null;
@@ -79,6 +104,11 @@ async function getChannelId(channelIdentifier: string): Promise<string | null> {
     if (!YOUTUBE_API_KEY) {
         console.warn('YOUTUBE_API_KEY is not set. Skipping YouTube channel ID fetch.');
         return null;
+    }
+    
+    // If identifier is a valid channel ID, just return it
+    if(channelIdentifier.startsWith('UC')) {
+        return channelIdentifier;
     }
 
     // This is a workaround since there's no direct endpoint to resolve a vanity URL.
@@ -114,6 +144,45 @@ async function getChannelId(channelIdentifier: string): Promise<string | null> {
     }
 }
 
+export async function getYouTubeChannelDetails(channelUrl: string): Promise<YouTubeChannelDetails | null> {
+    const identifier = getIdentifierFromUrl(channelUrl);
+    if (!identifier) return null;
+
+    if (channelDetailsCache.has(identifier)) {
+        return channelDetailsCache.get(identifier)!;
+    }
+
+    const channelId = await getChannelId(identifier);
+    if (!channelId) return null;
+    
+    if (!YOUTUBE_API_KEY) return null;
+
+    const detailsUrl = `${YOUTUBE_API_URL}/channels?part=snippet&id=${channelId}&key=${YOUTUBE_API_KEY}`;
+    try {
+        const res = await fetch(detailsUrl, { next: { revalidate: 3600 } }); // Cache for 1 hour
+        if (!res.ok) {
+            console.error(`YouTube API error (getYouTubeChannelDetails for ${channelId}): ${res.status} ${await res.text()}`);
+            return null;
+        }
+        const data: YouTubeChannelsResponse = await res.json();
+        const channel = data.items?.[0];
+        
+        if (channel) {
+            const details: YouTubeChannelDetails = {
+                channelId: channel.id,
+                profileImageUrl: channel.snippet.thumbnails.high.url
+            };
+            channelDetailsCache.set(identifier, details);
+            return details;
+        }
+        return null;
+
+    } catch (error) {
+        console.error(`Error fetching YouTube channel details for ${channelId}:`, error);
+        return null;
+    }
+}
+
 
 /**
  * Checks a list of YouTube channel URLs and returns info for those currently live.
@@ -128,23 +197,18 @@ export async function getYouTubeStreamStatus(channelUrls: string[]): Promise<Liv
 
     for (const url of channelUrls) {
         try {
-            const identifier = getIdentifierFromUrl(url);
-            let channelId = null;
+            const channelDetails = await getYouTubeChannelDetails(url);
 
-            if (identifier) {
-                channelId = await getChannelId(identifier);
-            }
-
-            if (!channelId) {
+            if (!channelDetails || !channelDetails.channelId) {
                 console.error(`Error: Could not determine Channel ID for URL: ${url}`);
                 continue;
             }
 
-            const searchUrl = `${YOUTUBE_API_URL}/search?part=snippet&channelId=${channelId}&eventType=live&type=video&key=${YOUTUBE_API_KEY}`;
-            const res = await fetch(searchUrl, { cache: 'no-store' }); // Revalidate every 2 minutes
+            const searchUrl = `${YOUTUBE_API_URL}/search?part=snippet&channelId=${channelDetails.channelId}&eventType=live&type=video&key=${YOUTUBE_API_KEY}`;
+            const res = await fetch(searchUrl, { cache: 'no-store' }); 
 
             if (!res.ok) {
-                 console.error(`YouTube API error (getYouTubeStreamStatus for ${channelId}): ${res.status} ${await res.text()}`);
+                 console.error(`YouTube API error (getYouTubeStreamStatus for ${channelDetails.channelId}): ${res.status} ${await res.text()}`);
                 continue;
             }
 

@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { Streamer } from '@/lib/types';
 import { adminAuth } from '@/lib/firebase-admin';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const streamersPath = path.join(process.cwd(), 'src', 'data', 'streams.json');
 
@@ -69,15 +68,12 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
 
         const nextId = 'streamer-' + (streamers.length > 0 ? Math.max(...streamers.map((s: any) => parseInt(s.id.split('-')[1] || '0'))) + 1 : 1);
         
-        const avatarPlaceholders = PlaceHolderImages.filter(p => p.imageHint.includes('avatar'));
-        const randomAvatar = avatarPlaceholders[Math.floor(Math.random() * avatarPlaceholders.length)];
-        
         const newStreamer: Streamer = {
             id: nextId,
             name,
             platform,
             platformUrl,
-            avatar: randomAvatar.id,
+            avatar: '', // Avatar is now fetched dynamically
             isLive: false,
             title: `Welcome to my stream!`,
             game: `Variety`,
@@ -379,7 +375,3 @@ export async function getFirebaseAuthUsers() {
         return [];
     }
 }
-
-    
-
-    

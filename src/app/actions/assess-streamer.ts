@@ -1,8 +1,8 @@
 
 'use server';
 
-import { getTwitchStreamStatus } from '@/lib/twitch';
-import { getYouTubeStreamStatus } from '@/lib/youtube';
+import { getTwitchStreamStatus, getTwitchUsers } from '@/lib/twitch';
+import { getYouTubeStreamStatus, getYouTubeChannelDetails } from '@/lib/youtube';
 import type { Streamer } from '@/lib/types';
 
 // This interface matches the output the component expects
@@ -41,11 +41,45 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
   try {
     const twitchLogins = twitchStreamers.map(s => getLoginFromUrl('twitch', s.platformUrl)).filter(Boolean);
     const youtubeChannelUrls = youtubeStreamers.map(s => s.platformUrl);
+    
+    // Fetch user profile info (including avatars) first
+    const [twitchUsers, youtubeUserDetailsList] = await Promise.all([
+      twitchLogins.length > 0 ? getTwitchUsers(twitchLogins) : Promise.resolve([]),
+      Promise.all(youtubeChannelUrls.map(url => getYouTubeChannelDetails(url)))
+    ]);
 
+    const twitchAvatars = new Map(twitchUsers.map(u => [u.login.toLowerCase(), u.profile_image_url]));
+    const youtubeAvatars = new Map(youtubeUserDetailsList.map((details, i) => 
+        details ? [youtubeChannelUrls[i].toLowerCase(), details.profileImageUrl] : [null, null]
+    ).filter(([url]) => url));
+
+
+    // Now check for live status
     const [liveTwitchStreams, liveYouTubeStreams] = await Promise.all([
         twitchLogins.length > 0 ? getTwitchStreamStatus(twitchLogins) : Promise.resolve([]),
         youtubeChannelUrls.length > 0 ? getYouTubeStreamStatus(youtubeChannelUrls) : Promise.resolve([])
     ]);
+
+    const getAvatar = (streamer: Streamer): string => {
+        if (streamer.platform.toLowerCase() === 'twitch') {
+            const login = getLoginFromUrl('twitch', streamer.platformUrl);
+            return twitchAvatars.get(login.toLowerCase()) || streamer.avatar;
+        }
+        if (streamer.platform.toLowerCase() === 'youtube') {
+            return youtubeAvatars.get(streamer.platformUrl.toLowerCase()) || streamer.avatar;
+        }
+        // Fallback for manually set avatars for other platforms
+        return streamer.avatar;
+    };
+    
+    // If a streamer has multiple profiles, prefer the Twitch avatar
+    const combinedAvatars = new Map<string, string>();
+    streamers.forEach(s => {
+        const avatar = getAvatar(s);
+        if (!combinedAvatars.has(s.name.toLowerCase()) || s.platform.toLowerCase() === 'twitch') {
+            combinedAvatars.set(s.name.toLowerCase(), avatar);
+        }
+    });
 
     const liveTwitchStreamers: LiveStreamerInfo[] = twitchStreamers
       .map(streamer => {
@@ -57,7 +91,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
             name: streamer.name,
             platform: streamer.platform,
             platformUrl: streamer.platformUrl,
-            avatar: streamer.avatar,
+            avatar: combinedAvatars.get(streamer.name.toLowerCase()) || streamer.avatar,
             isLive: true,
             title: liveInfo.title,
             game: liveInfo.game_name,
@@ -76,7 +110,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
                     name: streamer.name,
                     platform: streamer.platform,
                     platformUrl: streamer.platformUrl,
-                    avatar: streamer.avatar,
+                    avatar: combinedAvatars.get(streamer.name.toLowerCase()) || streamer.avatar,
                     isLive: true,
                     title: liveInfo.title,
                     game: 'Unknown Game', // YouTube API for live streams doesn't provide game easily
@@ -90,7 +124,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
     // Include manually set non-Twitch/non-YouTube live streamers as a fallback
     const manualLive = streamers
       .filter(s => s.isLive && !['twitch', 'youtube'].includes(s.platform.toLowerCase()))
-      .map(s => ({ ...s, game: s.game || 'Unknown Game', thumbnailUrl: s.avatar }));
+      .map(s => ({ ...s, avatar: getAvatar(s), game: s.game || 'Unknown Game', thumbnailUrl: s.avatar }));
 
     return [...liveTwitchStreamers, ...liveYouTubeStreamers, ...manualLive];
 
