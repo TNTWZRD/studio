@@ -5,12 +5,20 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { Event } from '@/lib/types';
 
+const mediaIdsPreprocess = z.preprocess((arg) => {
+    if (typeof arg === 'string' && arg.length > 0) return [arg];
+    if (Array.isArray(arg)) return arg.filter(id => id.length > 0);
+    return [];
+}, z.array(z.string()));
+
 const EventSchema = z.object({
     title: z.string().min(1, 'Title is required.'),
     start: z.string().min(1, 'Start date is required.'),
     end: z.string().min(1, 'End date is required.'),
     details: z.string().min(1, 'Details are required.'),
     status: z.enum(['upcoming', 'live', 'past']),
+    url: z.string().url().optional().or(z.literal('')),
+    media: mediaIdsPreprocess.optional(),
 });
 
 const AddEventSchema = EventSchema;
@@ -34,7 +42,7 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
         };
     }
     
-    const { title, start, end, details, status } = validatedFields.data;
+    const { title, start, end, details, status, url, media } = validatedFields.data;
 
     try {
         const newId = 'event-' + Date.now();
@@ -48,11 +56,13 @@ export async function addEvent(prevState: FormState, formData: FormData): Promis
             participants: JSON.stringify([{ id: 'p-new', name: 'Community' }]),
             image: String(Math.floor(Math.random() * 20) + 1), // Assign a random placeholder image ID
             scoreboard: '[]',
+            url: url || null,
+            media: JSON.stringify(media || []),
         };
 
         const stmt = db.prepare(`
-            INSERT INTO events (id, title, start, "end", status, details, participants, image, scoreboard)
-            VALUES (@id, @title, @start, @end, @status, @details, @participants, @image, @scoreboard)
+            INSERT INTO events (id, title, start, "end", status, details, participants, image, scoreboard, url, media)
+            VALUES (@id, @title, @start, @end, @status, @details, @participants, @image, @scoreboard, @url, @media)
         `);
         stmt.run(newEvent);
 
@@ -78,16 +88,16 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
         };
     }
 
-    const { id, title, start, end, details, status } = validatedFields.data;
+    const { id, title, start, end, details, status, url, media } = validatedFields.data;
 
     try {
         const stmt = db.prepare(`
             UPDATE events 
-            SET title = @title, start = @start, "end" = @end, details = @details, status = @status
+            SET title = @title, start = @start, "end" = @end, details = @details, status = @status, url = @url, media = @media
             WHERE id = @id
         `);
         
-        const result = stmt.run({ id, title, start, end, details, status });
+        const result = stmt.run({ id, title, start, end, details, status, url: url || null, media: JSON.stringify(media || []) });
 
         if (result.changes === 0) {
             return { success: false, message: "Event not found." };
@@ -96,6 +106,7 @@ export async function updateEvent(prevState: FormState, formData: FormData): Pro
         revalidatePath('/');
         revalidatePath('/admin');
         revalidatePath('/events');
+        revalidatePath(`/events/${id}`);
         
         return { success: true, message: `Event "${title}" has been updated successfully.` };
 

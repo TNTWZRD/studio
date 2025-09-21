@@ -47,11 +47,25 @@ function initializeDb() {
                 details TEXT,
                 image TEXT,
                 participants TEXT,
-                scoreboard TEXT
+                scoreboard TEXT,
+                url TEXT,
+                media TEXT
             )
         `);
         migrateEvents();
         migrated = true;
+    } else {
+        // Migration for existing events table
+        const columns = db.prepare("PRAGMA table_info(events)").all() as { name: string }[];
+        const columnNames = columns.map(c => c.name);
+        if (!columnNames.includes('url')) {
+            console.log('Adding "url" column to events table...');
+            db.exec('ALTER TABLE events ADD COLUMN url TEXT');
+        }
+        if (!columnNames.includes('media')) {
+            console.log('Adding "media" column to events table...');
+            db.exec('ALTER TABLE events ADD COLUMN media TEXT');
+        }
     }
     
     if (!tableNames.includes('media')) {
@@ -129,8 +143,8 @@ function migrateEvents() {
     console.log('Migrating events from events.json...');
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const stmt = db.prepare(`
-        INSERT INTO events (id, title, start, "end", status, details, image, participants, scoreboard)
-        VALUES (@id, @title, @start, @end, @status, @details, @image, @participants, @scoreboard)
+        INSERT INTO events (id, title, start, "end", status, details, image, participants, scoreboard, url, media)
+        VALUES (@id, @title, @start, @end, @status, @details, @image, @participants, @scoreboard, @url, @media)
     `);
 
     db.transaction((items) => {
@@ -139,6 +153,8 @@ function migrateEvents() {
                 ...item,
                 participants: JSON.stringify(item.participants || []),
                 scoreboard: JSON.stringify(item.scoreboard || []),
+                url: item.url || null,
+                media: JSON.stringify(item.media || [])
             });
         }
     })(data);

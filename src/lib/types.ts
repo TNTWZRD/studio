@@ -30,6 +30,9 @@ export interface Event {
   image: string;
   participants: { id: string, name: string }[];
   scoreboard?: ScoreboardEntry[];
+  url?: string;
+  media?: MediaItem[];
+  mediaIds?: string[];
 }
 
 

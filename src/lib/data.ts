@@ -102,28 +102,60 @@ export async function getStreamers(): Promise<Streamer[]> {
 }
 
 export async function getEvents(): Promise<Event[]> {
+    const allMedia = await getMedia();
+    const mediaMap = new Map(allMedia.map(m => [m.id, m]));
+
     const stmt = db.prepare('SELECT * FROM events ORDER BY start DESC');
     const dbEvents = stmt.all() as any[];
     
-    return dbEvents.map(event => ({
-        ...event,
-        image: getImage(event.image).imageUrl,
-        participants: event.participants ? JSON.parse(event.participants) : [],
-        scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
-    }));
+    return dbEvents.map(event => {
+        const mediaIds = event.media ? JSON.parse(event.media) : [];
+        const associatedMedia = mediaIds.map((id: string) => mediaMap.get(id)).filter(Boolean) as MediaItem[];
+        
+        let imageUrl = getImage(event.image).imageUrl;
+        if (associatedMedia.length > 0) {
+            const randomIndex = Math.floor(Math.random() * associatedMedia.length);
+            imageUrl = associatedMedia[randomIndex].thumbnail;
+        }
+
+        return {
+            ...event,
+            image: imageUrl,
+            participants: event.participants ? JSON.parse(event.participants) : [],
+            scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
+            media: associatedMedia,
+            mediaIds: mediaIds,
+            url: event.url,
+        }
+    });
 }
 
 export async function getEventById(id: string): Promise<Event | undefined> {
+    const allMedia = await getMedia();
+    const mediaMap = new Map(allMedia.map(m => [m.id, m]));
+
     const stmt = db.prepare('SELECT * FROM events WHERE id = ?');
     const event = stmt.get(id) as any;
 
     if (!event) return undefined;
     
+    const mediaIds = event.media ? JSON.parse(event.media) : [];
+    const associatedMedia = mediaIds.map((id: string) => mediaMap.get(id)).filter(Boolean) as MediaItem[];
+        
+    let imageUrl = getImage(event.image).imageUrl;
+    if (associatedMedia.length > 0) {
+        const randomIndex = Math.floor(Math.random() * associatedMedia.length);
+        imageUrl = associatedMedia[randomIndex].thumbnail;
+    }
+
     return {
         ...event,
-        image: getImage(event.image).imageUrl,
+        image: imageUrl,
         participants: event.participants ? JSON.parse(event.participants) : [],
         scoreboard: event.scoreboard ? JSON.parse(event.scoreboard) : [],
+        media: associatedMedia,
+        mediaIds: mediaIds,
+        url: event.url,
     };
 }
 

@@ -3,7 +3,7 @@
 
 import { withAdminAuth } from '@/components/auth/with-admin-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Event, Streamer } from '@/lib/types';
+import type { Event, MediaItem, Streamer } from '@/lib/types';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { addStreamer, removeStreamer, assignStreamerToUser, updateStreamer } from '../actions/manage-streamers';
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, Check, ChevronsUpDown } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,9 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { getMedia } from '@/lib/data';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
 
 type AuthUser = { uid: string; displayName: string | undefined; email: string | undefined };
 
@@ -236,11 +239,12 @@ function StreamerList({ streamers }: { streamers: Streamer[] }) {
     );
 }
 
-function AddEventForm() {
+function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
     const [startDate, setStartDate] = useState<Date>();
     const [endDate, setEndDate] = useState<Date>();
+    const [selectedMedia, setSelectedMedia] = useState<string[]>([]);
     
     const [state, formAction] = useActionState(addEvent, {
       success: false,
@@ -258,6 +262,7 @@ function AddEventForm() {
                 formRef.current?.reset();
                 setStartDate(undefined);
                 setEndDate(undefined);
+                setSelectedMedia([]);
             }
         }
     }, [state, toast]);
@@ -332,6 +337,17 @@ function AddEventForm() {
                         <Label htmlFor="details">Details</Label>
                         <Textarea id="details" name="details" placeholder="Describe the event..." required />
                     </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="url">Event URL (Optional)</Label>
+                        <Input id="url" name="url" type="url" placeholder="https://example.com/event-page"/>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Associated Media (Optional)</Label>
+                        <MultiSelectMedia value={selectedMedia} onChange={setSelectedMedia} allMedia={allMedia} />
+                        {selectedMedia.map(id => <input key={id} type="hidden" name="media" value={id} />)}
+                    </div>
+
                      <div className="space-y-2">
                         <Label htmlFor="status">Status</Label>
                         <Select name="status" defaultValue="upcoming" required>
@@ -353,11 +369,13 @@ function AddEventForm() {
     );
 }
 
-function EditEventDialog({ event }: { event: Event }) {
+function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaItem[] }) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [startDate, setStartDate] = useState<Date | undefined>(new Date(event.start));
     const [endDate, setEndDate] = useState<Date | undefined>(event.end ? new Date(event.end) : undefined);
+    const [selectedMedia, setSelectedMedia] = useState<string[]>(event.mediaIds || []);
+
     const [state, formAction] = useActionState(updateEvent, {
         success: false,
         message: '',
@@ -384,7 +402,7 @@ function EditEventDialog({ event }: { event: Event }) {
                     <span className="sr-only">Edit Event</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Edit Event</DialogTitle>
                     <DialogDescription>
@@ -456,6 +474,16 @@ function EditEventDialog({ event }: { event: Event }) {
                         <Textarea id="details" name="details" defaultValue={event.details} required />
                     </div>
                      <div className="space-y-2">
+                        <Label htmlFor="url">Event URL (Optional)</Label>
+                        <Input id="url" name="url" type="url" placeholder="https://example.com/event-page" defaultValue={event.url}/>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Associated Media (Optional)</Label>
+                        <MultiSelectMedia value={selectedMedia} onChange={setSelectedMedia} allMedia={allMedia} />
+                        {selectedMedia.map(id => <input key={id} type="hidden" name="media" value={id} />)}
+                    </div>
+                     <div className="space-y-2">
                         <Label htmlFor="status">Status</Label>
                         <Select name="status" defaultValue={event.status} required>
                             <SelectTrigger>
@@ -511,7 +539,7 @@ function RemoveEventForm({ eventId }: { eventId: string }) {
     );
 }
 
-function EventList({ events }: { events: Event[] }) {
+function EventList({ events, allMedia }: { events: Event[], allMedia: MediaItem[] }) {
     return (
          <Card>
             <CardHeader>
@@ -535,7 +563,7 @@ function EventList({ events }: { events: Event[] }) {
                                 <TableCell className="capitalize">{event.status}</TableCell>
                                 <TableCell>{format(new Date(event.start), 'PP')}</TableCell>
                                 <TableCell className="text-right flex items-center justify-end">
-                                    <EditEventDialog event={event} />
+                                    <EditEventDialog event={event} allMedia={allMedia} />
                                     <RemoveEventForm eventId={event.id} />
                                 </TableCell>
                             </TableRow>
@@ -624,8 +652,78 @@ function StreamerAssignmentList({ streamers, authUsers }: { streamers: Streamer[
   );
 }
 
+function MultiSelectMedia({ value, onChange, allMedia }: { value: string[], onChange: (value: string[]) => void, allMedia: MediaItem[] }) {
+    const [open, setOpen] = useState(false);
+    
+    const handleSelect = (mediaId: string) => {
+        onChange(
+            value.includes(mediaId) 
+                ? value.filter(id => id !== mediaId)
+                : [...value, mediaId]
+        );
+    };
 
-function AdminPage({ allStreamers, allEvents, authUsers }: { allStreamers: Streamer[], allEvents: Event[], authUsers: AuthUser[] }) {
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between">
+                     <span className="truncate">
+                        {value.length === 0 && 'Select media...'}
+                        {value.length === 1 && allMedia.find(m => m.id === value[0])?.title}
+                        {value.length > 1 && `${value.length} media items selected`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                    <CommandInput placeholder="Search media..." />
+                    <CommandEmpty>No media found.</CommandEmpty>
+                    <CommandGroup className="max-h-60 overflow-auto">
+                        {allMedia.map((media) => (
+                            <CommandItem
+                                key={media.id}
+                                value={media.title}
+                                onSelect={() => handleSelect(media.id)}
+                            >
+                                <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        value.includes(media.id) ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {media.title}
+                            </CommandItem>
+                        ))}
+                    </CommandGroup>
+                </Command>
+                {value.length > 0 && (
+                    <div className="p-2 border-t">
+                        <p className="text-sm font-medium mb-2">Selected:</p>
+                        <div className="flex flex-wrap gap-1">
+                        {value.map(id => {
+                            const media = allMedia.find(m => m.id === id);
+                            return (
+                                <Badge key={id} variant="secondary" className="flex items-center gap-1">
+                                    <span className="truncate">{media?.title}</span>
+                                     <button
+                                        onClick={(e) => { e.stopPropagation(); handleSelect(id); }}
+                                        className="rounded-full hover:bg-muted-foreground/20"
+                                    >
+                                        <X className="h-3 w-3"/>
+                                    </button>
+                                </Badge>
+                            )
+                        })}
+                        </div>
+                    </div>
+                )}
+            </PopoverContent>
+        </Popover>
+    );
+}
+
+function AdminPage({ allStreamers, allEvents, authUsers, allMedia }: { allStreamers: Streamer[], allEvents: Event[], authUsers: AuthUser[], allMedia: MediaItem[] }) {
   return (
     <div className="container mx-auto py-12">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -642,8 +740,8 @@ function AdminPage({ allStreamers, allEvents, authUsers }: { allStreamers: Strea
             <StreamerList streamers={allStreamers} />
           </TabsContent>
           <TabsContent value="events" className="space-y-6 mt-6">
-             <AddEventForm />
-             <EventList events={allEvents} />
+             <AddEventForm allMedia={allMedia} />
+             <EventList events={allEvents} allMedia={allMedia} />
           </TabsContent>
           <TabsContent value="assignments" className="space-y-6 mt-6">
               <StreamerAssignmentList streamers={allStreamers} authUsers={authUsers} />
@@ -655,6 +753,36 @@ function AdminPage({ allStreamers, allEvents, authUsers }: { allStreamers: Strea
   );
 }
 
-export default withAdminAuth(AdminPage);
-
+function AdminPageWrapper() {
+    const [allStreamers, setAllStreamers] = useState<Streamer[]>([]);
+    const [allEvents, setAllEvents] = useState<Event[]>([]);
+    const [authUsers, setAuthUsers] = useState<AuthUser[]>([]);
+    const [allMedia, setAllMedia] = useState<MediaItem[]>([]);
+    const [loading, setLoading] = useState(true);
     
+    useEffect(() => {
+        async function loadData() {
+            const [streamers, events, users, media] = await Promise.all([
+                getStreamers(),
+                getEvents(),
+                getFirebaseAuthUsers(),
+                getMedia(),
+            ]);
+            setAllStreamers(streamers);
+            setAllEvents(events);
+            setAuthUsers(users);
+            setAllMedia(media);
+            setLoading(false);
+        }
+        loadData();
+    }, []);
+
+    if (loading) {
+        return <div className="container mx-auto py-12">Loading...</div>;
+    }
+    
+    return <AdminPage allStreamers={allStreamers} allEvents={allEvents} authUsers={authUsers} allMedia={allMedia} />;
+}
+
+
+export default withAdminAuth(AdminPageWrapper);
