@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Event, MediaItem, Streamer } from '@/lib/types';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { addStreamer, removeStreamer, assignStreamerToUser, updateStreamer } from '../actions/manage-streamers';
+import { addStreamer, removeStreamer, assignStreamerToUser, updateStreamer, getFirebaseAuthUsers } from '../actions/manage-streamers';
 import { addEvent, removeEvent, updateEvent } from '../actions/manage-events';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Trash2, Edit, Check, ChevronsUpDown } from 'lucide-react';
+import { Trash2, Edit, Check, ChevronsUpDown, X } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { getMedia } from '@/lib/data';
+import { getMedia, getStreamers, getEvents } from '@/lib/data';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 
