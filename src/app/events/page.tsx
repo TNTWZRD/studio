@@ -1,3 +1,4 @@
+
 import { getEvents } from '@/lib/data';
 import { Event } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -70,6 +71,13 @@ export default async function EventsPage() {
   const liveEvents = allEvents.filter(e => e.status === 'live');
   const pastEvents = allEvents.filter(e => e.status === 'past');
 
+  let defaultTab = 'past';
+  if (liveEvents.length > 0) {
+      defaultTab = 'live';
+  } else if (upcomingEvents.length > 0) {
+      defaultTab = 'upcoming';
+  }
+
   return (
     <div className="container mx-auto py-12">
       <div className="text-center mb-12">
@@ -79,7 +87,7 @@ export default async function EventsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="upcoming" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-8">
           <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
           <TabsTrigger value="live">Live</TabsTrigger>
