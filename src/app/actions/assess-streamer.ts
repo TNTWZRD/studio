@@ -12,6 +12,7 @@ export interface LiveStreamerInfo {
   isLive: boolean;
   title: string;
   game: string;
+  thumbnailUrl: string;
 }
 
 export async function assessStreamers(streamers: Streamer[]): Promise<LiveStreamerInfo[]> {
@@ -50,6 +51,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
             isLive: true,
             title: liveInfo.title,
             game: liveInfo.game_name,
+            thumbnailUrl: liveInfo.thumbnail_url.replace('{width}', '400').replace('{height}', '225'),
           };
         }
         return null;
@@ -59,7 +61,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
     // Include manually set non-Twitch live streamers as a fallback
     const manualLive = streamers
       .filter(s => s.isLive && s.platform.toLowerCase() !== 'twitch')
-      .map(s => ({ ...s, game: s.game || 'Unknown Game' }));
+      .map(s => ({ ...s, game: s.game || 'Unknown Game', thumbnailUrl: s.avatar }));
 
     return [...liveStreamers, ...manualLive];
 
@@ -68,6 +70,6 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
     // On error, fallback to any manually set live streamers
      return streamers
         .filter(s => s.isLive)
-        .map(s => ({ ...s, game: s.game || 'Unknown Game' }));
+        .map(s => ({ ...s, game: s.game || 'Unknown Game', thumbnailUrl: s.avatar }));
   }
 }
