@@ -1,12 +1,7 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  EnhanceLiveStreamerStripWithAIAssessmentInput,
-  EnhanceLiveStreamerStripWithAIAssessmentOutput,
-} from '@/ai/flows/assess-live-stream-info';
-import { assessStreamer } from '@/app/actions/assess-streamer';
+import { assessStreamers, type LiveStreamerInfo } from '@/app/actions/assess-streamer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -26,29 +21,20 @@ const PlatformIcon = ({ platform }: { platform: string }) => {
 };
 
 export default function LiveStreamers({ allStreamers }: { allStreamers: Streamer[] }) {
-  const [assessedStreamers, setAssessedStreamers] = useState<EnhanceLiveStreamerStripWithAIAssessmentOutput[]>([]);
+  const [liveStreamers, setLiveStreamers] = useState<LiveStreamerInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
     const assessAllStreamers = async () => {
+      if (!allStreamers || allStreamers.length === 0) {
+          setLoading(false);
+          return;
+      }
       setLoading(true);
       try {
-        const assessments = await Promise.all(
-          allStreamers.map((streamer) => {
-            const input: EnhanceLiveStreamerStripWithAIAssessmentInput = {
-              name: streamer.name,
-              platform: streamer.platform,
-              platformUrl: streamer.platformUrl,
-              avatar: streamer.avatar,
-              isLive: streamer.isLive,
-              title: streamer.title,
-              game: streamer.game,
-            };
-            return assessStreamer(input);
-          })
-        );
-        setAssessedStreamers(assessments.filter(s => s.isLive));
+        const assessments = await assessStreamers(allStreamers);
+        setLiveStreamers(assessments);
       } catch (error) {
         console.error('Failed to assess streamers:', error);
         toast({
@@ -57,7 +43,7 @@ export default function LiveStreamers({ allStreamers }: { allStreamers: Streamer
             variant: "destructive"
         })
         // Fallback to manually set live streamers on error
-        setAssessedStreamers(allStreamers.filter(s => s.isLive).map(s => ({...s, game: s.game || 'Unknown'})));
+        setLiveStreamers(allStreamers.filter(s => s.isLive).map(s => ({...s, game: s.game || 'Unknown'})));
       } finally {
         setLoading(false);
       }
@@ -98,7 +84,7 @@ export default function LiveStreamers({ allStreamers }: { allStreamers: Streamer
     );
   }
 
-  if (assessedStreamers.length === 0) {
+  if (liveStreamers.length === 0) {
     return null;
   }
 
@@ -112,7 +98,7 @@ export default function LiveStreamers({ allStreamers }: { allStreamers: Streamer
             </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {assessedStreamers.map((streamer) => (
+        {liveStreamers.map((streamer) => (
             <a key={`${streamer.name}-${streamer.platformUrl}`} href={streamer.platformUrl} target="_blank" rel="noopener noreferrer" className="block group">
             <Card className="bg-card/10 text-primary-foreground border-border/20 hover:bg-card/20 transition-colors h-full">
                 <CardContent className="p-4">
