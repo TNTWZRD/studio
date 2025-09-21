@@ -355,14 +355,15 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                     </div>
                     
                     <div className="space-y-2">
-                        <Label>Image URLs</Label>
+                        <Label>Image Paths</Label>
+                        <CardDescription>Enter paths to images in the `public` directory (e.g., /images/event.png). The first image will be the main banner.</CardDescription>
                         <div className="space-y-2">
                             {imageUrls.map((url, index) => (
                                 <div key={index} className="flex items-center gap-2">
                                     <Input 
                                         name="imageUrls"
-                                        type="url"
-                                        placeholder="https://example.com/image.png"
+                                        type="text"
+                                        placeholder="/images/your-image.png"
                                         value={url}
                                         onChange={(e) => handleImageUrlChange(index, e.target.value)}
                                     />
@@ -530,14 +531,15 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
                     </div>
                    
                     <div className="space-y-2">
-                        <Label>Image URLs</Label>
+                        <Label>Image Paths</Label>
+                        <CardDescription>Enter paths to images in the `public` directory (e.g., /images/event.png). The first image will be the main banner.</CardDescription>
                         <div className="space-y-2">
                             {imageUrls.map((url, index) => (
                                 <div key={index} className="flex items-center gap-2">
                                     <Input
                                         name="imageUrls"
-                                        type="url"
-                                        placeholder="https://example.com/image.png"
+                                        type="text"
+                                        placeholder="/images/your-image.png"
                                         value={url}
                                         onChange={(e) => handleImageUrlChange(index, e.target.value)}
                                     />
@@ -865,3 +867,5 @@ function AdminPageWrapper() {
 
 
 export default withAdminAuth(AdminPageWrapper);
+
+    
