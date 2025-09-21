@@ -17,10 +17,8 @@ export interface LiveStreamerInfo {
 
 export async function assessStreamers(streamers: Streamer[]): Promise<LiveStreamerInfo[]> {
   const twitchStreamers = streamers.filter(s => s.platform.toLowerCase() === 'twitch');
-  const youtubeStreamers = streamers.filter(s => s.platform.toLowerCase() === 'youtube');
   
   // For now, we only have the Twitch API implemented.
-  // YouTube checking can be added here later.
   // We'll also pass through any manually set `isLive: true` non-Twitch streamers.
 
   try {
@@ -34,7 +32,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
         }
     }).filter(Boolean);
 
-    const liveTwitchStreams = await getTwitchStreamStatus(twitchUsernames);
+    const liveTwitchStreams = twitchUsernames.length > 0 ? await getTwitchStreamStatus(twitchUsernames) : [];
 
     const liveStreamers: LiveStreamerInfo[] = twitchStreamers
       .map(streamer => {
@@ -67,7 +65,7 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
 
   } catch (error) {
     console.error('Error assessing streamer info:', error);
-    // On error, fallback to any manually set live streamers
+    // On error, fallback to any manually set live streamers from any platform
      return streamers
         .filter(s => s.isLive)
         .map(s => ({ ...s, game: s.game || 'Unknown Game', thumbnailUrl: s.avatar }));
