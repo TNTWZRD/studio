@@ -57,8 +57,9 @@ const enhanceLiveStreamerInfoPrompt = ai.definePrompt({
   output: {schema: EnhanceLiveStreamerStripWithAIAssessmentOutputSchema},
   prompt: `You are an AI assistant that enhances live streamer information for accuracy.
 
-  Given the following streamer data, assess and correct the stream title and game being streamed.
-  Ensure the information is accurate and reflects the current stream content.
+  Given the following streamer data, determine if the user is currently live on their platform by visiting their channel URL.
+  Then, assess and correct the stream title and game being streamed.
+  Set the 'isLive' field to true if they are live, and false otherwise.
 
   Streamer Name: {{{name}}}
   Platform: {{{platform}}}
@@ -69,6 +70,7 @@ const enhanceLiveStreamerInfoPrompt = ai.definePrompt({
   Provide the enhanced stream title and game. If the current game is not available, make an educated guess as to what they are playing. Be concise.
   Ensure you respond in a way that can be parsed as a valid JSON object.
   {
+    "isLive": <true_or_false>,
     "title": "<Enhanced Stream Title>",
     "game": "<Enhanced Game>"
   }`,

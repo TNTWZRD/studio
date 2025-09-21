@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { Event, MediaItem, Streamer } from '@/lib/types';
 import { getEvents, getMedia, getStreamers } from '@/lib/data';
 import Hero from '@/components/sections/hero';
+import AssociatedStreamers from '@/components/sections/associated-streamers';
 
 function EventSummarySkeleton() {
     return (
@@ -59,6 +60,7 @@ function PageContent({
                 <EventsSummary events={upcomingEvents} />
             </Suspense>
             <AboutSection />
+            <AssociatedStreamers allStreamers={allStreamers} />
         </div>
     );
 }
