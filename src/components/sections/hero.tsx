@@ -22,7 +22,7 @@ export default function Hero() {
   }, []);
 
   return (
-    <section className="relative h-[60vh] min-h-[400px] w-full text-primary-foreground sm:h-[70vh] md:h-[80vh]">
+    <section className="relative h-[50vh] min-h-[400px] w-full text-primary-foreground sm:h-[50vh] md:h-[50vh]">
       {heroImage && (
         <Image
           src={heroImage.imageUrl}
