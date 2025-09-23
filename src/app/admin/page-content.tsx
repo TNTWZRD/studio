@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { Event, MediaItem, Streamer } from '@/lib/types';
 import { useFormStatus } from 'react-dom';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { addStreamer, removeStreamer, assignStreamerToUser, updateStreamer, getFirebaseAuthUsers } from '../actions/manage-streamers';
+import { addStreamer, removeStreamer, assignStreamerToUser, updateStreamer, getFirebaseAuthUsers, setYouTubeChannelId } from '../actions/manage-streamers';
 import { addEvent, removeEvent, updateEvent } from '../actions/manage-events';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -117,6 +117,8 @@ function EditStreamerDialog({ streamer }: { streamer: Streamer }) {
         }
     }, [state, toast]);
 
+    
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -197,6 +199,29 @@ function RemoveStreamerForm({ streamerId }: { streamerId: string }) {
     );
 }
 
+function SetYouTubeChannelIdForm({ streamerId }: { streamerId: string }) {
+    const { toast } = useToast();
+    const [state, formAction] = useActionState(setYouTubeChannelId, { success: false, message: '' } as any);
+    const [value, setValue] = useState('');
+
+    useEffect(() => {
+        if (state.message) {
+            toast({ title: state.success ? 'Success' : 'Error', description: state.message, variant: state.success ? 'default' : 'destructive' });
+        }
+    }, [state, toast]);
+
+    return (
+        <form action={formAction} className="ml-2 flex items-center gap-2">
+            <input type="hidden" name="streamerId" value={streamerId} />
+            <Input placeholder="YouTube channel ID" value={value} onChange={e => setValue(e.target.value)} name="youtubeChannelId" />
+            <Button type="submit" size="icon">
+                <Check className="h-4 w-4" />
+                <span className="sr-only">Set</span>
+            </Button>
+        </form>
+    );
+}
+
 function StreamerList({ streamers }: { streamers: Streamer[] }) {
     return (
          <Card>
@@ -228,6 +253,10 @@ function StreamerList({ streamers }: { streamers: Streamer[] }) {
                                 <TableCell className="text-right flex items-center justify-end">
                                     <EditStreamerDialog streamer={streamer} />
                                     <RemoveStreamerForm streamerId={streamer.id} />
+                                    {/* If platform is YouTube and youtubeChannelId is missing, allow admin to set it manually */}
+                                    {streamer.platform === 'youtube' && !((streamer as any).youtubeChannelId) && (
+                                        <SetYouTubeChannelIdForm streamerId={streamer.id} />
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -241,10 +270,11 @@ function StreamerList({ streamers }: { streamers: Streamer[] }) {
 function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
     const { toast } = useToast();
     const formRef = useRef<HTMLFormElement>(null);
-    const [startDate, setStartDate] = useState<Date>();
-    const [endDate, setEndDate] = useState<Date>();
+    const [startDate, setStartDate] = useState<string>('');
+    const [startTime, setStartTime] = useState<string>('');
+    const [endDate, setEndDate] = useState<string>('');
+    const [endTime, setEndTime] = useState<string>('');
     const [selectedMedia, setSelectedMedia] = useState<string[]>([]);
-    const [imageUrls, setImageUrls] = useState(['']);
 
     const [state, formAction] = useActionState(addEvent, {
       success: false,
@@ -260,27 +290,16 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
             });
             if (state.success) {
                 formRef.current?.reset();
-                setStartDate(undefined);
-                setEndDate(undefined);
+                setStartDate('');
+                setStartTime('');
+                setEndDate('');
+                setEndTime('');
                 setSelectedMedia([]);
-                setImageUrls(['']);
             }
         }
     }, [state, toast]);
 
-    const handleImageUrlChange = (index: number, value: string) => {
-        const newUrls = [...imageUrls];
-        newUrls[index] = value;
-        setImageUrls(newUrls);
-    };
-
-    const addImageUrlInput = () => {
-        setImageUrls([...imageUrls, '']);
-    };
-
-    const removeImageUrlInput = (index: number) => {
-        setImageUrls(imageUrls.filter((_, i) => i !== index));
-    };
+    // Using file uploads for images (stored in /public/images). No manual image URL inputs.
 
 
     return (
@@ -290,63 +309,37 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                 <CardDescription>Enter the details for the new event.</CardDescription>
             </CardHeader>
             <CardContent>
-                <form ref={formRef} action={formAction} className="space-y-4">
+                <form ref={formRef} action={formAction} className="space-y-4" onSubmit={(e) => {
+                    const form = e.currentTarget as HTMLFormElement;
+                    const sd = (form.querySelector('[name="startDate"]') as HTMLInputElement)?.value;
+                    const st = (form.querySelector('[name="startTime"]') as HTMLInputElement)?.value;
+                    const ed = (form.querySelector('[name="endDate"]') as HTMLInputElement)?.value;
+                    const et = (form.querySelector('[name="endTime"]') as HTMLInputElement)?.value;
+                    const startHidden = form.querySelector('[name="start"]') as HTMLInputElement;
+                    const endHidden = form.querySelector('[name="end"]') as HTMLInputElement;
+                    startHidden.value = sd && st ? new Date(sd + 'T' + st).toISOString() : '';
+                    endHidden.value = ed && et ? new Date(ed + 'T' + et).toISOString() : '';
+                }}>
                     <div className="space-y-2">
                         <Label htmlFor="title">Event Title</Label>
                         <Input id="title" name="title" placeholder="e.g., Community Game Night" required />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                            <Label htmlFor="start">Start Date & Time</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !startDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {startDate ? format(startDate, "PPP p") : <span>Pick a date</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={startDate}
-                                        onSelect={setStartDate}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                             <input type="hidden" name="start" value={startDate?.toISOString()} />
+                        <div className="space-y-2">
+                            <Label>Start Date & Time</Label>
+                            <div className="flex gap-2">
+                                <input name="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-1/2" />
+                                <input name="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-1/2" />
+                            </div>
+                            <input type="hidden" name="start" />
                         </div>
                         <div className="space-y-2">
-                           <Label htmlFor="end">End Date & Time</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !endDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {endDate ? format(endDate, "PPP p") : <span>Pick a date</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={endDate}
-                                    onSelect={setEndDate}
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
-                           <input type="hidden" name="end" value={endDate?.toISOString()} />
+                            <Label>End Date & Time</Label>
+                            <div className="flex gap-2">
+                                <input name="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-1/2" />
+                                <input name="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-1/2" />
+                            </div>
+                            <input type="hidden" name="end" />
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -355,27 +348,11 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                     </div>
                     
                     <div className="space-y-2">
-                        <Label>Image Paths</Label>
-                        <CardDescription>Enter paths to images in the `public` directory (e.g., /images/event.png). The first image will be the main banner.</CardDescription>
-                        <div className="space-y-2">
-                            {imageUrls.map((url, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <Input 
-                                        name="imageUrls"
-                                        type="text"
-                                        placeholder="/images/your-image.png"
-                                        value={url}
-                                        onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                                    />
-                                    <Button variant="ghost" size="icon" type="button" onClick={() => removeImageUrlInput(index)} disabled={imageUrls.length === 1}>
-                                        <MinusCircle className="text-destructive" />
-                                    </Button>
-                                </div>
-                            ))}
+                        <Label htmlFor="images">Event Images</Label>
+                        <CardDescription>Upload one or more images. The first image will be used as the main banner.</CardDescription>
+                        <div className="pt-2">
+                            <input id="images" type="file" name="images" accept="image/*" multiple />
                         </div>
-                         <Button variant="outline" size="sm" type="button" onClick={addImageUrlInput}>
-                            <PlusCircle className="mr-2"/> Add Another Image
-                        </Button>
                     </div>
 
                     <div className="space-y-2">
@@ -386,7 +363,35 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
                     <div className="space-y-2">
                         <Label>Associated Video Media (Optional)</Label>
                         <MultiSelectMedia value={selectedMedia} onChange={setSelectedMedia} allMedia={allMedia} />
+                        {/* Hidden inputs for selected media (keeps server action form data in sync) */}
                         {selectedMedia.map(id => <input key={id} type="hidden" name="media" value={id} />)}
+
+                        {/* Render selected media with remove buttons so the admin can manage linked media */}
+                        {selectedMedia.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {selectedMedia.map(id => {
+                                    const media = allMedia.find(m => m.id === id);
+                                    if (!media) return null;
+                                    return (
+                                        <div key={id} className="flex items-center gap-2 border rounded px-2 py-1">
+                                            {media.thumbnail && (
+                                                // eslint-disable-next-line @next/next/no-img-element
+                                                <img src={media.thumbnail} alt={media.title} className="h-8 w-12 object-cover rounded" />
+                                            )}
+                                            <span className="text-sm truncate max-w-xs">{media.title}</span>
+                                            <button
+                                                type="button"
+                                                className="ml-2 text-destructive"
+                                                onClick={() => setSelectedMedia(selectedMedia.filter(s => s !== id))}
+                                                aria-label={`Remove ${media.title}`}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
 
                      <div className="space-y-2">
@@ -413,29 +418,19 @@ function AddEventForm({ allMedia }: { allMedia: MediaItem[] }) {
 function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaItem[] }) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
-    const [startDate, setStartDate] = useState<Date | undefined>(new Date(event.start));
-    const [endDate, setEndDate] = useState<Date | undefined>(event.end ? new Date(event.end) : undefined);
+    const [startDateStr, setStartDateStr] = useState<string>('');
+    const [startTimeStr, setStartTimeStr] = useState<string>('');
+    const [endDateStr, setEndDateStr] = useState<string>('');
+    const [endTimeStr, setEndTimeStr] = useState<string>('');
     const [selectedMedia, setSelectedMedia] = useState<string[]>(event.mediaIds || []);
-    const [imageUrls, setImageUrls] = useState(event.imageUrls?.length ? event.imageUrls : ['']);
+    const [imageUrls, setImageUrls] = useState<string[]>(event.imageUrls || []);
 
     const [state, formAction] = useActionState(updateEvent, {
         success: false,
         message: '',
     });
 
-    const handleImageUrlChange = (index: number, value: string) => {
-        const newUrls = [...imageUrls];
-        newUrls[index] = value;
-        setImageUrls(newUrls);
-    };
-
-    const addImageUrlInput = () => {
-        setImageUrls([...imageUrls, '']);
-    };
-
-    const removeImageUrlInput = (index: number) => {
-        setImageUrls(imageUrls.filter((_, i) => i !== index));
-    };
+    // Using file uploads for images (stored in /public/images). No manual image URL inputs.
 
      useEffect(() => {
         if (state.message) {
@@ -449,6 +444,32 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
             }
         }
     }, [state, toast]);
+
+    // Populate fields from the event whenever the dialog opens
+    useEffect(() => {
+        if (open) {
+            setSelectedMedia(event.mediaIds ?? []);
+            setImageUrls(event.imageUrls ?? []);
+            try {
+                if (event.start) {
+                    const s = new Date(event.start);
+                    setStartDateStr(s.toISOString().slice(0,10));
+                    setStartTimeStr(s.toISOString().slice(11,16));
+                } else {
+                    setStartDateStr(''); setStartTimeStr('');
+                }
+                if (event.end) {
+                    const e = new Date(event.end);
+                    setEndDateStr(e.toISOString().slice(0,10));
+                    setEndTimeStr(e.toISOString().slice(11,16));
+                } else {
+                    setEndDateStr(''); setEndTimeStr('');
+                }
+            } catch (e) {
+                setStartDateStr(''); setStartTimeStr(''); setEndDateStr(''); setEndTimeStr('');
+            }
+        }
+    }, [open, event]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -465,64 +486,38 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
                         Make changes to the event here. Click save when you're done.
                     </DialogDescription>
                 </DialogHeader>
-                <form action={formAction} className="space-y-4">
+                <form action={formAction} className="space-y-4" onSubmit={(e) => {
+                    const form = e.currentTarget as HTMLFormElement;
+                    const sd = (form.querySelector('[name="startDate"]') as HTMLInputElement)?.value;
+                    const st = (form.querySelector('[name="startTime"]') as HTMLInputElement)?.value;
+                    const ed = (form.querySelector('[name="endDate"]') as HTMLInputElement)?.value;
+                    const et = (form.querySelector('[name="endTime"]') as HTMLInputElement)?.value;
+                    const startHidden = form.querySelector('[name="start"]') as HTMLInputElement;
+                    const endHidden = form.querySelector('[name="end"]') as HTMLInputElement;
+                    startHidden.value = sd && st ? new Date(sd + 'T' + st).toISOString() : '';
+                    endHidden.value = ed && et ? new Date(ed + 'T' + et).toISOString() : '';
+                }}>
                     <input type="hidden" name="id" value={event.id} />
                     <div className="space-y-2">
                         <Label htmlFor="title">Event Title</Label>
                         <Input id="title" name="title" defaultValue={event.title} required />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                         <div className="space-y-2">
-                            <Label htmlFor="start">Start Date & Time</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !startDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {startDate ? format(startDate, "PPP p") : <span>Pick a date</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={startDate}
-                                        onSelect={setStartDate}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                             <input type="hidden" name="start" value={startDate?.toISOString()} />
+                        <div className="space-y-2">
+                            <Label>Start Date & Time</Label>
+                            <div className="flex gap-2">
+                                <input name="startDate" type="date" value={startDateStr} onChange={e => setStartDateStr(e.target.value)} className="w-1/2" />
+                                <input name="startTime" type="time" value={startTimeStr} onChange={e => setStartTimeStr(e.target.value)} className="w-1/2" />
+                            </div>
+                            <input type="hidden" name="start" />
                         </div>
                         <div className="space-y-2">
-                           <Label htmlFor="end">End Date & Time</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !endDate && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {endDate ? format(endDate, "PPP p") : <span>Pick a date</span>}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={endDate}
-                                    onSelect={setEndDate}
-                                    initialFocus
-                                />
-                                </PopoverContent>
-                            </Popover>
-                           <input type="hidden" name="end" value={endDate?.toISOString()} />
+                            <Label>End Date & Time</Label>
+                            <div className="flex gap-2">
+                                <input name="endDate" type="date" value={endDateStr} onChange={e => setEndDateStr(e.target.value)} className="w-1/2" />
+                                <input name="endTime" type="time" value={endTimeStr} onChange={e => setEndTimeStr(e.target.value)} className="w-1/2" />
+                            </div>
+                            <input type="hidden" name="end" />
                         </div>
                     </div>
                     <div className="space-y-2">
@@ -531,27 +526,28 @@ function EditEventDialog({ event, allMedia }: { event: Event, allMedia: MediaIte
                     </div>
                    
                     <div className="space-y-2">
-                        <Label>Image Paths</Label>
-                        <CardDescription>Enter paths to images in the `public` directory (e.g., /images/event.png). The first image will be the main banner.</CardDescription>
-                        <div className="space-y-2">
-                            {imageUrls.map((url, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                    <Input
-                                        name="imageUrls"
-                                        type="text"
-                                        placeholder="/images/your-image.png"
-                                        value={url}
-                                        onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                                    />
-                                    <Button variant="ghost" size="icon" type="button" onClick={() => removeImageUrlInput(index)} disabled={imageUrls.length === 1 && index === 0 && !imageUrls[0]}>
-                                        <MinusCircle className="text-destructive" />
-                                    </Button>
-                                </div>
-                            ))}
+                        <Label htmlFor="images">Event Images</Label>
+                        <CardDescription>Upload one or more images. The first image will be used as the main banner.</CardDescription>
+                        <div className="pt-2">
+                            <input id="images" type="file" name="images" accept="image/*" multiple />
                         </div>
-                        <Button variant="outline" size="sm" type="button" onClick={addImageUrlInput}>
-                            <PlusCircle className="mr-2"/> Add Another Image
-                        </Button>
+
+                        {/* List existing images with remove buttons */}
+                        {imageUrls && imageUrls.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {imageUrls.map((url, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 border rounded px-2 py-1">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={url} alt={`event-${idx}`} className="h-12 w-20 object-cover rounded" />
+                                        <span className="text-sm truncate max-w-xs">{url}</span>
+                                        <button type="button" className="ml-2 text-destructive" onClick={() => setImageUrls(imageUrls.filter((_, i) => i !== idx))}>✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Hidden inputs to submit current imageUrls array */}
+                        {imageUrls.map((url, i) => <input key={i} type="hidden" name="imageUrls" value={url} />)}
                     </div>
 
                     <div className="space-y-2">

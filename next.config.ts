@@ -8,7 +8,18 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Increase Server Actions body size limit to allow image uploads via form actions
+  serverActions: {
+    // Accept up to 10 MB bodies for server actions (adjust if you need larger uploads)
+    bodySizeLimit: '10mb',
+  },
+  // Note: allowedDevOrigins was tried here but caused runtime/typing issues with this Next version.
+  // Keep next.config minimal — cross-origin dev warnings can be safely ignored or handled by
+  // configuring the proxy to forward the appropriate headers.
   images: {
+    // Temporary explicit domains list to ensure Next image optimizer allows picsum during Docker builds
+    // This duplicates remotePatterns but provides an additional, explicit allowlist for domains.
+    domains: ['picsum.photos'],
     remotePatterns: [
       {
         protocol: 'https',

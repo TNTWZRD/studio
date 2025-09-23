@@ -49,9 +49,12 @@ export async function assessStreamers(streamers: Streamer[]): Promise<LiveStream
     ]);
 
     const twitchAvatars = new Map(twitchUsers.map(u => [u.login.toLowerCase(), u.profile_image_url]));
-    const youtubeAvatars = new Map(youtubeUserDetailsList.map((details, i) => 
-        details ? [youtubeChannelUrls[i].toLowerCase(), details.profileImageUrl] : [null, null]
-    ).filter(([url]) => url));
+    // Build a properly-typed list of [channelUrl, profileImageUrl] entries, filtering out nulls
+    const youtubeEntries: [string, string][] = youtubeUserDetailsList
+      .map((details, i) => details ? [youtubeChannelUrls[i].toLowerCase(), details.profileImageUrl] as [string, string] : null)
+      .filter(Boolean) as [string, string][];
+
+    const youtubeAvatars = new Map<string, string>(youtubeEntries);
 
 
     // Now check for live status

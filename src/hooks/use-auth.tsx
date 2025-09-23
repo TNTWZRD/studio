@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, Suspense } from 'react';
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, hasClientConfig } from '@/lib/firebase';
 import { isAdmin, canPost, isGuildMember } from '@/lib/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { signInWithCustomToken } from 'firebase/auth';
@@ -24,29 +24,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // This internal component handles the client-side logic of parsing the token from the URL
 // and signing the user in. It's wrapped in Suspense because it uses useSearchParams().
 function AuthTokenProcessor() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const pathname = usePathname();
-    const token = searchParams.get('token');
-    const roleCheck = searchParams.get('roleCheck');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname() || '/';
+  const token = searchParams?.get ? searchParams.get('token') : null;
+  const roleCheck = searchParams?.get ? searchParams.get('roleCheck') : null;
 
     useEffect(() => {
-        if (token) {
-            signInWithCustomToken(auth, token)
-                .then(async (userCredential) => {
-                    // After sign-in, force a token refresh to get custom claims if specified.
-                    if (roleCheck === 'true' && userCredential.user) {
-                        await userCredential.user.getIdToken(true);
-                    }
-                    // Clean the URL by removing the token parameter.
-                    router.replace(pathname, { scroll: false });
-                })
-                .catch((error) => {
-                    console.error("Firebase custom token sign-in error", error);
-                    // Still clean the URL on error.
-                    router.replace(pathname, { scroll: false });
-                });
+    if (token) {
+      try {
+        if (!auth || typeof (auth as any) !== 'object' || typeof signInWithCustomToken !== 'function') {
+          console.error('[auth] cannot sign in with custom token: auth not initialized or API missing');
+          try { router.replace(pathname, { scroll: false }); } catch {}
+          return;
         }
+
+        signInWithCustomToken(auth, token)
+          .then(async (userCredential) => {
+            // After sign-in, force a token refresh to get custom claims if specified.
+            if (roleCheck === 'true' && userCredential?.user) {
+              await userCredential.user.getIdToken(true);
+            }
+            // Clean the URL by removing the token parameter.
+            try { router.replace(pathname, { scroll: false }); } catch {}
+          })
+          .catch((error: any) => {
+            console.error("Firebase custom token sign-in error", error);
+            // Still clean the URL on error.
+            try { router.replace(pathname, { scroll: false }); } catch {}
+          });
+      } catch (err) {
+        console.error('[auth] error during custom token sign-in flow', err);
+        try { router.replace(pathname, { scroll: false }); } catch {}
+      }
+    }
     }, [token, roleCheck, router, pathname]);
 
     return null; // This component does not render anything.
@@ -62,40 +73,74 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Force refresh to get custom claims.
-        const tokenResult = await user.getIdTokenResult(true);
-        // Attach claims to user object for easier access
-        (user as any).claims = tokenResult.claims;
-        
-        const userIsAdmin = isAdmin(user);
-        const userIsMember = isGuildMember(user);
-        
-        // If they are not a member (and not an admin), sign them out.
-        if (!userIsMember) {
-          await firebaseSignOut(auth);
-          setUser(null);
-          setIsUserAdmin(false);
-          setCanUserPost(false);
-          setIsUserMember(false);
-        } else {
-            setUser(user);
-            setIsUserAdmin(userIsAdmin);
-            setCanUserPost(canPost(user));
-            setIsUserMember(userIsMember);
-        }
+    // Client-side diagnostics: print whether client config is present and the shape of `auth`.
+    try {
+      // eslint-disable-next-line no-console
+      console.log('[auth][diag] hasClientConfig', hasClientConfig);
+      // eslint-disable-next-line no-console
+      console.log('[auth][diag] auth typeof', typeof auth, 'constructor', auth && (auth as any).constructor ? (auth as any).constructor.name : null);
+      // eslint-disable-next-line no-console
+      console.log('[auth][diag] auth.onAuthStateChanged type', auth && (auth as any).onAuthStateChanged ? typeof (auth as any).onAuthStateChanged : 'missing');
+    } catch (e) {
+      // ignore
+    }
 
-      } else {
-        setUser(null);
-        setIsUserAdmin(false);
-        setCanUserPost(false);
-        setIsUserMember(false);
-      }
+    if (!hasClientConfig) {
+      console.warn('Firebase client not configured; skipping auth initialization.');
       setLoading(false);
-    });
+      return;
+    }
 
-    return () => unsubscribe();
+    let unsubscribe: (() => void) | undefined = undefined;
+    try {
+      if (!auth || typeof (auth as any) !== 'object' || typeof onAuthStateChanged !== 'function') {
+        console.error('[auth] onAuthStateChanged not available; skipping listener');
+        setLoading(false);
+        return;
+      }
+
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        try {
+          if (user) {
+            // Force refresh to get custom claims.
+            const tokenResult = await user.getIdTokenResult(true);
+            // Attach claims to user object for easier access
+            (user as any).claims = tokenResult.claims;
+            
+            const userIsAdmin = isAdmin(user);
+            const userIsMember = isGuildMember(user);
+            
+            // If they are not a member (and not an admin), sign them out.
+            if (!userIsMember) {
+              await firebaseSignOut(auth);
+              setUser(null);
+              setIsUserAdmin(false);
+              setCanUserPost(false);
+              setIsUserMember(false);
+            } else {
+              setUser(user);
+              setIsUserAdmin(userIsAdmin);
+              setCanUserPost(canPost(user));
+              setIsUserMember(userIsMember);
+            }
+
+          } else {
+            setUser(null);
+            setIsUserAdmin(false);
+            setCanUserPost(false);
+            setIsUserMember(false);
+          }
+        } catch (e) {
+          console.error('[auth] error processing auth state change', e);
+        }
+        setLoading(false);
+      });
+    } catch (err) {
+      console.error('[auth] error initializing auth listener', err);
+      setLoading(false);
+    }
+
+    return () => { try { if (typeof unsubscribe === 'function') unsubscribe(); } catch (e) { /* ignore */ } };
   }, []);
 
   const signIn = () => {

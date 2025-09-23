@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { Streamer } from '@/lib/types';
 import { adminAuth } from '@/lib/firebase-admin';
+import { subscribeToYouTubeChannel, unsubscribeFromYouTubeChannel } from '@/lib/youtube';
 
 const AddStreamerSchema = z.object({
     name: z.string().min(1, { message: 'Name is required.' }),
@@ -26,9 +27,12 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
     const validatedFields = AddStreamerSchema.safeParse(Object.fromEntries(formData.entries()));
 
     if (!validatedFields.success) {
+        const flat = validatedFields.error.flatten().fieldErrors;
+        const firstKey = Object.keys(flat)[0];
+        const firstMsg = firstKey ? (flat as any)[firstKey]?.[0] : 'Invalid data provided.';
         return {
             success: false,
-            message: validatedFields.error.flatten().fieldErrors[Object.keys(validatedFields.error.flatten().fieldErrors)[0]][0]
+            message: firstMsg || 'Invalid data provided.'
         };
     }
     
@@ -64,6 +68,16 @@ export async function addStreamer(prevState: FormState, formData: FormData): Pro
         `);
         insertStmt.run(newStreamer);
 
+        // If this is a YouTube streamer, attempt to subscribe to PuSH notifications
+        if (platform === 'youtube') {
+            try {
+                // Pass streamer id so we can resolve and persist the youtubeChannelId in the DB
+                await subscribeToYouTubeChannel(`streamer:${newId}`);
+            } catch (e) {
+                console.warn('Failed to subscribe to YouTube PuSH for', platformUrl, e);
+            }
+        }
+
         revalidatePath('/');
         revalidatePath('/admin');
         revalidatePath('/creator');
@@ -89,6 +103,9 @@ export async function updateStreamer(prevState: FormState, formData: FormData): 
     const { id, name, platform, platformUrl } = validatedFields.data;
 
     try {
+        const getOldStmt = db.prepare('SELECT platform, platformUrl FROM streamers WHERE id = ?');
+        const oldStreamer = getOldStmt.get(id) as { platform?: string; platformUrl?: string } | undefined;
+
         const checkStmt = db.prepare('SELECT id FROM streamers WHERE lower(platformUrl) = lower(?) AND id != ?');
         const existing = checkStmt.get(platformUrl, id);
 
@@ -96,12 +113,27 @@ export async function updateStreamer(prevState: FormState, formData: FormData): 
             return { success: false, message: 'This channel URL is already in use by another streamer.' };
         }
         
-        const updateStmt = db.prepare('UPDATE streamers SET name = ?, platform = ?, platformUrl = ? WHERE id = ?');
-        const result = updateStmt.run(name, platform, platformUrl, id);
+    const updateStmt = db.prepare('UPDATE streamers SET name = ?, platform = ?, platformUrl = ? WHERE id = ?');
+    const result = updateStmt.run(name, platform, platformUrl, id);
 
         if (result.changes === 0) {
              return { success: false, message: "Streamer not found." };
         }
+
+        // If platform changed and involves YouTube, manage subscriptions
+        try {
+            const old = oldStreamer;
+            if (old) {
+                if (old.platform === 'youtube' && platform !== 'youtube') {
+                    try { await unsubscribeFromYouTubeChannel(`streamer:${id}`); } catch (e) { console.warn(e); }
+                } else if (old.platform !== 'youtube' && platform === 'youtube') {
+                    try { await subscribeToYouTubeChannel(`streamer:${id}`); } catch (e) { console.warn(e); }
+                } else if (old.platform === 'youtube' && platform === 'youtube' && old.platformUrl !== platformUrl) {
+                    try { await unsubscribeFromYouTubeChannel(`streamer:${id}`); } catch (e) { console.warn(e); }
+                    try { await subscribeToYouTubeChannel(`streamer:${id}`); } catch (e) { console.warn(e); }
+                }
+            }
+        } catch (e) { console.warn('Error managing YouTube subscription on update', e); }
 
         revalidatePath('/');
         revalidatePath('/admin');
@@ -131,8 +163,8 @@ export async function removeStreamer(prevState: FormState, formData: FormData): 
     const { id } = validatedFields.data;
 
     try {
-        const getStmt = db.prepare('SELECT name FROM streamers WHERE id = ?');
-        const streamerToRemove = getStmt.get(id) as Streamer;
+    const getStmt = db.prepare('SELECT name, platform, platformUrl FROM streamers WHERE id = ?');
+    const streamerToRemove = getStmt.get(id) as Streamer;
 
         if (!streamerToRemove) {
             return { success: false, message: "Streamer not found." };
@@ -140,6 +172,15 @@ export async function removeStreamer(prevState: FormState, formData: FormData): 
 
         const deleteStmt = db.prepare('DELETE FROM streamers WHERE id = ?');
         deleteStmt.run(id);
+
+        // If removed streamer was YouTube, attempt to unsubscribe
+        try {
+                if (streamerToRemove.platform === 'youtube') {
+                await unsubscribeFromYouTubeChannel(`streamer:${streamerToRemove.id}`);
+            }
+        } catch (e) {
+            console.warn('Failed to unsubscribe from YouTube PuSH for', streamerToRemove.platformUrl, e);
+        }
         
         revalidatePath('/');
         revalidatePath('/admin');
@@ -313,7 +354,7 @@ export async function assignStreamerToUser(prevState: FormState, formData: FormD
 export async function getFirebaseAuthUsers() {
     try {
         const userRecords = await adminAuth.listUsers();
-        return userRecords.users.map(user => ({
+        return userRecords.users.map((user: any) => ({
             uid: user.uid,
             displayName: user.displayName || 'No display name',
             email: user.email,
@@ -321,5 +362,43 @@ export async function getFirebaseAuthUsers() {
     } catch (error) {
         console.error('Error fetching Firebase Auth users:', error);
         return [];
+    }
+}
+
+const SetYouTubeChannelIdSchema = z.object({
+    streamerId: z.string().min(1),
+    youtubeChannelId: z.string().min(1),
+});
+
+export async function setYouTubeChannelId(prevState: FormState, formData: FormData): Promise<FormState> {
+    const validated = SetYouTubeChannelIdSchema.safeParse(Object.fromEntries(formData.entries()));
+    if (!validated.success) {
+        const first = Object.values(validated.error.flatten().fieldErrors)[0]?.[0];
+        return { success: false, message: first || 'Invalid data.' };
+    }
+
+    const { streamerId, youtubeChannelId } = validated.data;
+
+    try {
+        const stmt = db.prepare('UPDATE streamers SET youtubeChannelId = ? WHERE id = ?');
+        const res = stmt.run(youtubeChannelId, streamerId);
+        if (res.changes === 0) return { success: false, message: 'Streamer not found.' };
+
+        // Re-subscribe to PuSH using the resolved channel id if platform is youtube
+        try {
+            const row = db.prepare('SELECT platform FROM streamers WHERE id = ?').get(streamerId) as any;
+            if (row && row.platform === 'youtube') {
+                // Use the existing subscribe helper which accepts a streamer id and will read youtubeChannelId
+                try { await subscribeToYouTubeChannel(`streamer:${streamerId}`); } catch (e) { console.warn('subscribe after manual set failed', e); }
+            }
+        } catch (e) { console.warn('error checking platform after setYouTubeChannelId', e); }
+
+        revalidatePath('/');
+        revalidatePath('/admin');
+        revalidatePath('/creator');
+
+        return { success: true, message: 'YouTube channel ID saved.' };
+    } catch (e: any) {
+        return { success: false, message: e?.message || 'An error occurred.' };
     }
 }

@@ -1,0 +1,37 @@
+services:
+  amwhub:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID}
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_DISCORD_CLIENT_ID: ${NEXT_PUBLIC_DISCORD_CLIENT_ID}
+    image: amwhub-dev
+    env_file:
+      - .env
+    ports:
+      - "52356:52356"
+    volumes:
+      # Bind the local amwhub.db into the container so the container uses and
+      # updates the same DB file on disk. This provides live editing of the DB.
+      - ./amwhub.db:/app/amwhub.db:rw
+    # Bind the local public folder so static assets (images, avatars) are live-linked
+    # into the container. This allows editing/adding files in ./public without rebuilding.
+      - ./public:/app/public:rw
+  # NOTE: do NOT mount node_modules or .next in production builds; mounting
+  # an empty named volume here hides the image's installed dependencies and
+  # compiled Next build, causing mismatches that only appear in Docker.
+  # If you want live-reload in development, use a separate dev compose file.
+    environment:
+      - NODE_ENV=production
+    stdin_open: true
+    tty: true
+
+volumes:
+  node_modules:
+  next_build:

@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+build
+amwhub.db
+.env
+.env.*
+*.log
+coverage
+.git
+.vscode
+tmp
+npm-debug.log
+yarn-error.log

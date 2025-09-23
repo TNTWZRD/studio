@@ -16,8 +16,9 @@ function initializeDb() {
 
     if (!tableNames.includes('streamers')) {
         console.log('Creating streamers table...');
+        // Use IF NOT EXISTS to make this safe if multiple processes hit initialization concurrently
         db.exec(`
-            CREATE TABLE streamers (
+            CREATE TABLE IF NOT EXISTS streamers (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 platform TEXT NOT NULL,
@@ -28,17 +29,30 @@ function initializeDb() {
                 featured INTEGER,
                 schedule TEXT,
                 oneTimeEvents TEXT,
-                discordUserId TEXT
+                discordUserId TEXT,
+                youtubeChannelId TEXT
             )
         `);
-        migrateStreamers();
-        migrated = true;
+        // Only run migration if the table is empty to avoid duplicate inserts
+        try {
+            const countRes = db.prepare('SELECT COUNT(*) as c FROM streamers').get() as { c: number } | undefined;
+            const count = (countRes && typeof countRes.c === 'number') ? countRes.c : 0;
+            if (count === 0) {
+                migrateStreamers();
+                migrated = true;
+            }
+        } catch (err) {
+            // If the table doesn't exist yet in a race, skip migration here; other process will migrate.
+            console.warn('Could not determine streamers row count, skipping migrateStreamers():', err);
+        }
     }
+
+    // (avatarUpdatedAt column no longer used - filesystem mtime is used instead)
 
     if (!tableNames.includes('events')) {
         console.log('Creating events table...');
         db.exec(`
-            CREATE TABLE events (
+            CREATE TABLE IF NOT EXISTS events (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
                 start TEXT NOT NULL,
@@ -72,11 +86,52 @@ function initializeDb() {
             db.exec('ALTER TABLE events ADD COLUMN imageUrls TEXT');
         }
     }
+
+    // Migration: add youtubeChannelId to streamers if missing
+    if (tableNames.includes('streamers')) {
+        try {
+            const cols = db.prepare("PRAGMA table_info(streamers)").all() as { name: string }[];
+            const colNames = cols.map(c => c.name);
+            if (!colNames.includes('youtubeChannelId')) {
+                console.log('Adding "youtubeChannelId" column to streamers table...');
+                db.exec('ALTER TABLE streamers ADD COLUMN youtubeChannelId TEXT');
+            }
+        } catch (e) {
+            // ignore migration errors
+        }
+    }
+
+    // Ensure events_images table exists to store uploaded images metadata
+    if (!tableNames.includes('events_images')) {
+        console.log('Creating events_images table...');
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS events_images (
+                id TEXT PRIMARY KEY,
+                eventId TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                originalName TEXT,
+                createdAt INTEGER NOT NULL
+            )
+        `);
+    }
+    else {
+        // Migration: add deletedAt column for soft-deletes
+        try {
+            const cols = db.prepare("PRAGMA table_info(events_images)").all() as { name: string }[];
+            const colNames = cols.map(c => c.name);
+            if (!colNames.includes('deletedAt')) {
+                console.log('Adding "deletedAt" column to events_images table...');
+                db.exec('ALTER TABLE events_images ADD COLUMN deletedAt INTEGER');
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
     
     if (!tableNames.includes('media')) {
         console.log('Creating media table...');
         db.exec(`
-            CREATE TABLE media (
+            CREATE TABLE IF NOT EXISTS media (
                 id TEXT PRIMARY KEY,
                 type TEXT NOT NULL,
                 title TEXT NOT NULL,
@@ -86,20 +141,36 @@ function initializeDb() {
                 date TEXT NOT NULL
             )
         `);
-        migrateMedia();
-        migrated = true;
+        try {
+            const countRes = db.prepare('SELECT COUNT(*) as c FROM media').get() as { c: number } | undefined;
+            const count = (countRes && typeof countRes.c === 'number') ? countRes.c : 0;
+            if (count === 0) {
+                migrateMedia();
+                migrated = true;
+            }
+        } catch (err) {
+            console.warn('Could not determine media row count, skipping migrateMedia():', err);
+        }
     }
     
     if (!tableNames.includes('config')) {
         console.log('Creating config table...');
         db.exec(`
-            CREATE TABLE config (
+            CREATE TABLE IF NOT EXISTS config (
                 id INTEGER PRIMARY KEY,
                 discordInviteUrl TEXT
             )
         `);
-        migrateConfig();
-        migrated = true;
+        try {
+            const countRes = db.prepare('SELECT COUNT(*) as c FROM config').get() as { c: number } | undefined;
+            const count = (countRes && typeof countRes.c === 'number') ? countRes.c : 0;
+            if (count === 0) {
+                migrateConfig();
+                migrated = true;
+            }
+        } catch (err) {
+            console.warn('Could not determine config row count, skipping migrateConfig():', err);
+        }
     }
 
     if (migrated) {
@@ -116,7 +187,7 @@ function migrateStreamers() {
     console.log('Migrating streamers from streams.json...');
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const stmt = db.prepare(`
-        INSERT INTO streamers (id, name, platform, platformUrl, isLive, title, game, featured, schedule, oneTimeEvents, discordUserId)
+        INSERT OR IGNORE INTO streamers (id, name, platform, platformUrl, isLive, title, game, featured, schedule, oneTimeEvents, discordUserId)
         VALUES (@id, @name, @platform, @platformUrl, @isLive, @title, @game, @featured, @schedule, @oneTimeEvents, @discordUserId)
     `);
 
@@ -148,7 +219,7 @@ function migrateEvents() {
     console.log('Migrating events from events.json...');
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const stmt = db.prepare(`
-        INSERT INTO events (id, title, start, "end", status, details, image, participants, scoreboard, url, media, imageUrls)
+        INSERT OR IGNORE INTO events (id, title, start, "end", status, details, image, participants, scoreboard, url, media, imageUrls)
         VALUES (@id, @title, @start, @end, @status, @details, @image, @participants, @scoreboard, @url, @media, @imageUrls)
     `);
 
@@ -175,7 +246,7 @@ function migrateMedia() {
     console.log('Migrating media from media.json...');
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     const stmt = db.prepare(`
-        INSERT INTO media (id, type, title, thumbnail, url, creator, date)
+        INSERT OR IGNORE INTO media (id, type, title, thumbnail, url, creator, date)
         VALUES (@id, @type, @title, @thumbnail, @url, @creator, @date)
     `);
 
@@ -193,11 +264,12 @@ function migrateConfig() {
 
     console.log('Migrating config from config.json...');
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    // Use INSERT OR REPLACE so config can be updated if the seed changes
     const stmt = db.prepare(`
-        INSERT INTO config (id, discordInviteUrl)
+        INSERT OR REPLACE INTO config (id, discordInviteUrl)
         VALUES (1, @discordInviteUrl)
     `);
-    stmt.run(data);
+    stmt.run({ discordInviteUrl: data.discordInviteUrl });
     console.log('Migrated config.');
 }
 

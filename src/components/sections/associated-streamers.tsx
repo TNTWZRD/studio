@@ -19,15 +19,15 @@ export default function AssociatedStreamers({ allStreamers }: { allStreamers: St
         return null;
     }
 
-    const groupedStreamers = allStreamers.reduce((acc, streamer) => {
-        const key = streamer.name.trim().toLowerCase();
-        if (!acc[key]) {
-            acc[key] = {
-                name: streamer.name,
-                avatar: streamer.avatar,
-                platforms: [],
-            };
-        }
+  const groupedStreamers = allStreamers.reduce((acc, streamer) => {
+    const key = streamer.name.trim().toLowerCase();
+    if (!acc[key]) {
+      acc[key] = {
+        name: streamer.name,
+        avatar: streamer.avatar || '',
+        platforms: [],
+      };
+    }
         acc[key].platforms.push({
             platform: streamer.platform,
             platformUrl: streamer.platformUrl,
@@ -51,10 +51,14 @@ export default function AssociatedStreamers({ allStreamers }: { allStreamers: St
                 <Card key={streamer.name} className="overflow-hidden shadow-md transition-shadow duration-300 hover:shadow-lg h-full flex flex-col">
                     <CardContent className="p-4 flex flex-col flex-grow">
                         <div className="flex items-center gap-4 mb-4">
-                            <Avatar className="h-12 w-12">
-                                <AvatarImage src={streamer.avatar} alt={streamer.name} />
-                                <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
+              <Avatar className="h-12 w-12">
+                {streamer.avatar && (streamer.avatar.startsWith('/') || streamer.avatar.startsWith('http')) ? (
+                  <AvatarImage src={streamer.avatar} alt={streamer.name} />
+                ) : (
+                  <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>
+                )}
+                {!streamer.avatar && <AvatarFallback>{streamer.name.charAt(0)}</AvatarFallback>}
+              </Avatar>
                             <p className="font-bold truncate">{streamer.name}</p>
                         </div>
                         <div className="mt-auto space-y-2">

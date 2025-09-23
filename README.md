@@ -108,3 +108,43 @@ There are a couple of small developer tools under `src/ai/` used for local gener
 ## License
 
 See repository root for license details.
+
+## Running with Docker (local development)
+
+The repository includes a `Dockerfile` for running the app in-place using a volume mount for live edits.
+
+Build the image (from the repo root):
+
+```bash
+docker build -t amwhub-dev .
+```
+
+Run the container and mount the repo so edits are immediately visible. Map the container port 5235 to a host port of your choice (the project uses 5235 by default):
+
+```bash
+docker run --rm -it -p 5235:5235 -v "${PWD}:/app" -v "${PWD}/node_modules:/app/node_modules" -e NODE_ENV=development amwhub-dev
+```
+
+Notes:
+- The container installs native build tools to support `better-sqlite3`.
+- By default `amwhub.db` is ignored in the image. If you want the container to use the host DB file, bind-mount `amwhub.db` into the container (e.g. `-v "${PWD}/amwhub.db:/app/amwhub.db"`).
+- If your development machine uses Windows `cmd.exe`, replace `${PWD}` with `%cd%` in the `docker run` command or use PowerShell-style variables when appropriate.
+
+Using a `.env` file
+
+You can forward environment variables from a `.env` file into the container in two ways:
+
+- With `docker run`:
+
+```bash
+docker run --rm -it --env-file .env -p 5235:5235 -v "${PWD}:/app" -v "${PWD}/node_modules:/app/node_modules" amwhub-dev
+```
+
+- With `docker compose` (recommended for convenience). A `docker-compose.yml` is included and already references `.env` with `env_file`:
+
+```bash
+docker compose up --build
+```
+
+On Windows `cmd.exe`, use `%cd%` in place of `${PWD}` for the run command, or run the compose commands from PowerShell or WSL where `${PWD}` works as expected.
+

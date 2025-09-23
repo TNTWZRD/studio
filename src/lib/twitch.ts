@@ -1,6 +1,12 @@
 
+import metrics from './metrics';
+
 let accessToken: string | null = null;
 let tokenExpiresAt: number | null = null;
+
+// Short in-memory cache for stream status to coalesce UI refreshes
+const twitchStreamCache: Map<string, { expiresAt: number; data: any }> = new Map();
+const TWITCH_STREAM_TTL_MS = Number(process.env.TWITCH_STREAM_TTL_MS || 15000); // default 15s
 
 interface TwitchTokenResponse {
     access_token: string;
@@ -112,7 +118,13 @@ export async function getTwitchStreamStatus(userLogins: string[]): Promise<Twitc
     if (userLogins.length === 0) {
         return [];
     }
-    
+    const cacheKey = userLogins.join(',').toLowerCase();
+    const now = Date.now();
+    const cached = twitchStreamCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+        return cached.data as TwitchStream[];
+    }
+
     const token = await getAccessToken();
     const clientId = process.env.TWITCH_CLIENT_ID;
 
@@ -125,19 +137,28 @@ export async function getTwitchStreamStatus(userLogins: string[]): Promise<Twitc
 
     const url = `https://api.twitch.tv/helix/streams?${params.toString()}`;
 
-    const response = await fetch(url, {
-        headers: {
-            'Client-ID': clientId,
-            'Authorization': `Bearer ${token}`,
-        },
-        cache: 'no-store' // Do not cache results
-    });
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Client-ID': clientId,
+                'Authorization': `Bearer ${token}`,
+            },
+            cache: 'no-store' // Do not cache results at fetch layer
+        });
 
-    if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Failed to fetch Twitch stream status: ${response.status} ${errorBody}`);
+        if (!response.ok) {
+            const errorBody = await response.text();
+            metrics.increment('twitch.streams.error');
+            if (response.status === 429) metrics.increment('twitch.error.429');
+            if (response.status === 403) metrics.increment('twitch.error.403');
+            throw new Error(`Failed to fetch Twitch stream status: ${response.status} ${errorBody}`);
+        }
+
+        const result: TwitchStreamsResponse = await response.json();
+        twitchStreamCache.set(cacheKey, { expiresAt: now + TWITCH_STREAM_TTL_MS, data: result.data });
+        return result.data;
+    } catch (err) {
+        metrics.increment('twitch.streams.exception');
+        throw err;
     }
-
-    const result: TwitchStreamsResponse = await response.json();
-    return result.data;
 }

@@ -26,6 +26,20 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const code = searchParams.get('code');
 
+    // Diagnostic logging: print incoming request details
+    try {
+        console.log('Discord callback invoked. request.url=', req.url);
+        // Headers available on NextRequest
+        console.log('Request headers:', {
+            host: req.headers.get('host'),
+            forwardedProto: req.headers.get('x-forwarded-proto'),
+            forwardedHost: req.headers.get('x-forwarded-host'),
+            forwardedFor: req.headers.get('x-forwarded-for'),
+        });
+    } catch (e) {
+        console.error('Failed to log request headers', e);
+    }
+
     if (!code) {
         return NextResponse.json({ error: 'Code not found in query parameters.' }, { status: 400 });
     }
@@ -41,6 +55,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        console.log('Using redirectUri:', redirectUri);
         const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
             method: 'POST',
             headers: {
@@ -56,13 +71,15 @@ export async function GET(req: NextRequest) {
         });
 
         const tokenData = await tokenResponse.json();
+        console.log('Discord token exchange response:', tokenData);
         if (tokenData.error) {
             console.error('Discord token exchange error:', tokenData);
             return NextResponse.json({ error: tokenData.error_description || 'Failed to exchange code for token.' }, { status: 400 });
         }
 
         // Check guild membership before proceeding
-        const memberData = await getGuildMember(tokenData.access_token, guildId!);
+    const memberData = await getGuildMember(tokenData.access_token, guildId!);
+    console.log('Guild member data:', memberData);
         const userRoles = memberData?.roles || [];
 
         const isMember = userRoles.includes(GUILD_MEMBER_ROLE_ID);
@@ -114,11 +131,26 @@ export async function GET(req: NextRequest) {
         await adminAuth.setCustomUserClaims(uid, customClaims);
         const customToken = await adminAuth.createCustomToken(uid);
 
-        const url = req.nextUrl.clone();
-        url.pathname = '/';
-        url.search = `?token=${customToken}&roleCheck=true`;
-        
-        return NextResponse.redirect(url);
+        // Build a redirect URL that respects the public host/proto forwarded by the proxy
+        const forwardedHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+        const forwardedProto = req.headers.get('x-forwarded-proto') || 'http';
+
+        // Prefer explicit NEXT_PUBLIC_APP_URL if set (ensures exact public URL)
+        let baseOrigin: string;
+        if (process.env.NEXT_PUBLIC_APP_URL) {
+            baseOrigin = process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '');
+        } else if (forwardedHost) {
+            baseOrigin = `${forwardedProto}://${forwardedHost}`;
+        } else {
+            // Fallback to container-local host/port
+            baseOrigin = `${forwardedProto}://0.0.0.0:5235`;
+        }
+
+        const redirectUrl = new URL('/', baseOrigin);
+        redirectUrl.search = `?token=${customToken}&roleCheck=true`;
+        console.log('Redirecting to (computed):', redirectUrl.toString());
+
+        return NextResponse.redirect(redirectUrl);
 
     } catch (error: any) {
         console.error('Discord auth callback error:', error);
